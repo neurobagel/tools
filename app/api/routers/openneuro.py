@@ -5,7 +5,8 @@ import warnings
 from typing import Annotated, Union
 
 import requests
-from fastapi import APIRouter, Body, HTTPException
+from fastapi import APIRouter, Body
+from fastapi.responses import JSONResponse
 
 from ..models import (
     FailedUpload,
@@ -22,9 +23,8 @@ router = APIRouter(prefix="/openneuro", tags=["openneuro"])
 
 @router.put(
     "/upload",
-    response_model=Union[
-        SuccessfulUpload, SuccessfulUploadWithWarning, FailedUpload
-    ],
+    response_model=Union[SuccessfulUpload, SuccessfulUploadWithWarning],
+    responses={400: {"model": FailedUpload}},
 )
 async def upload(data_dictionary: Annotated[dict, Body()]):
     # TODO: Populate URL based on path parameter (and switch to OpenNeuro-JSONLD target)
@@ -37,26 +37,27 @@ async def upload(data_dictionary: Annotated[dict, Body()]):
 
     validation_warning = None
 
-    # TODO: Check if we actually need this filter
+    # Catch UserWarnings as exceptions so we can store them in the response
     warnings.simplefilter("error", UserWarning)
     try:
         validate_data_dict(data_dictionary)
     except UserWarning as w:
         validation_warning = str(w)
-        print(str(w))
     except (LookupError, ValueError) as e:
-        raise HTTPException(status_code=400, detail=str(e)) from e
+        # NOTE: No validation is performed on a JSONResponse (https://fastapi.tiangolo.com/advanced/response-directly/#return-a-response),
+        # but that's okay since we mostly want to see the FailedUpload messages
+        return JSONResponse(
+            status_code=400, content=FailedUpload(error=str(e)).dict()
+        )
 
-    # TODO: If not exists, create a new file instead
+    # TODO: If not exists, create a new file instead (use different GitHub API endpoint)
     target_file = requests.get(url, headers=headers)
     target_file_sha = target_file.json()["sha"]
 
     # Convert the dict to a JSON string and then to base64
     new_data_b64 = base64.b64encode(
         # TODO: Make indentation dynamic
-        json.dumps(data_dictionary, indent=4).encode(
-            "utf-8"
-        )  # , by_alias=True, exclude_none=True
+        json.dumps(data_dictionary, indent=4).encode("utf-8")
     ).decode("utf-8")
 
     payload = {
@@ -65,14 +66,13 @@ async def upload(data_dictionary: Annotated[dict, Body()]):
         "sha": target_file_sha,
     }
 
-    # Need to `json.dumps` first b/c the default form encoding is not liked by the GitHub API
+    # We use json.dumps to ensure the payload is not form-encoded (the GitHub API expects JSON)
     response = requests.put(url, headers=headers, data=json.dumps(payload))
 
     if not response.ok:
         return {"error": response.content}
 
     if validation_warning is not None:
-        print("warning returned!")
         return SuccessfulUploadWithWarning(
             contents=data_dictionary, warning=validation_warning
         )
