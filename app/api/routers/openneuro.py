@@ -1,10 +1,18 @@
 import base64
 import json
 import os
-from typing import Annotated
+import warnings
+from typing import Annotated, Union
 
 import requests
-from fastapi import APIRouter, Body
+from fastapi import APIRouter, Body, HTTPException
+
+from ..models import (
+    FailedUpload,
+    SuccessfulUpload,
+    SuccessfulUploadWithWarning,
+)
+from ..utils import validate_data_dict
 
 # TODO: Error out when PAT doesn't exist in environment
 GH_PAT = os.environ.get("GH_PAT")
@@ -12,9 +20,14 @@ GH_PAT = os.environ.get("GH_PAT")
 router = APIRouter(prefix="/openneuro", tags=["openneuro"])
 
 
-@router.put("/upload")
+@router.put(
+    "/upload",
+    response_model=Union[
+        SuccessfulUpload, SuccessfulUploadWithWarning, FailedUpload
+    ],
+)
 async def upload(data_dictionary: Annotated[dict, Body()]):
-    # TODO: Populate URL based on path parameter
+    # TODO: Populate URL based on path parameter (and switch to OpenNeuro-JSONLD target)
     url = "https://api.github.com/repos/neurobagel/test_json/contents/example_synthetic.json"
     headers = {
         "Accept": "application/vnd.github+json",
@@ -22,16 +35,28 @@ async def upload(data_dictionary: Annotated[dict, Body()]):
         "X-GitHub-Api-Version": "2022-11-28",
     }
 
+    validation_warning = None
+
+    # TODO: Check if we actually need this filter
+    warnings.simplefilter("error", UserWarning)
+    try:
+        validate_data_dict(data_dictionary)
+    except UserWarning as w:
+        validation_warning = str(w)
+        print(str(w))
+    except (LookupError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+
     # TODO: If not exists, create a new file instead
     target_file = requests.get(url, headers=headers)
     target_file_sha = target_file.json()["sha"]
 
-    # Validation here
-
-    # Now we assume the validation is done, so we can convert the dict to a JSON string and then to base64
+    # Convert the dict to a JSON string and then to base64
     new_data_b64 = base64.b64encode(
         # TODO: Make indentation dynamic
-        json.dumps(data_dictionary, indent=4).encode("utf-8")
+        json.dumps(data_dictionary, indent=4).encode(
+            "utf-8"
+        )  # , by_alias=True, exclude_none=True
     ).decode("utf-8")
 
     payload = {
@@ -46,4 +71,10 @@ async def upload(data_dictionary: Annotated[dict, Body()]):
     if not response.ok:
         return {"error": response.content}
 
-    return {"message": "Finished uploading to OpenNeuro-JSONLD."}
+    if validation_warning is not None:
+        print("warning returned!")
+        return SuccessfulUploadWithWarning(
+            contents=data_dictionary, warning=validation_warning
+        )
+
+    return SuccessfulUpload(contents=data_dictionary)
