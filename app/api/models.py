@@ -21,5 +21,5 @@ class SuccessfulUploadWithWarning(SuccessfulUpload):
 class FailedUpload(BaseModel):
     """Data model for a response to a failed upload of a file."""
 
-    message = "Failed to upload the file to OpenNeuro-JSONLD."
+    message = "Failed to upload the file to OpenNeuroDatasets-JSONLD."
     error: str

@@ -27,7 +27,7 @@ router = APIRouter(prefix="/openneuro", tags=["openneuro"])
     responses={400: {"model": FailedUpload}},
 )
 async def upload(data_dictionary: Annotated[dict, Body()]):
-    # TODO: Populate URL based on path parameter (and switch to OpenNeuro-JSONLD target)
+    # TODO: Populate URL based on path parameter (and switch to OpenNeuroDatasets-JSONLD target)
     url = "https://api.github.com/repos/neurobagel/test_json/contents/example_synthetic.json"
     headers = {
         "Accept": "application/vnd.github+json",
