@@ -70,7 +70,11 @@ async def upload(data_dictionary: Annotated[dict, Body()]):
             ).dict(),
         )
 
-    # Convert the dict to a JSON string and then to base64
+    # To send our data over the network, we need to turn it into 
+    # ascii text by encoding with base64. Base64 takes bytestrings
+    # as input. So first we encode to bytestring (with utf), then we 
+    # base64 encode, and finally decode from base64 bytestring back
+    # to plaintext with utf decode.
     new_content_b64 = base64.b64encode(
         # TODO: Make indentation dynamic
         new_content_json.encode("utf-8")
