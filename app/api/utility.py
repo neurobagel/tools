@@ -1,6 +1,39 @@
 import json
 
 
+def extract_non_annotations(data_dict: dict) -> dict:
+    """
+    Return a data dictionary without Neurobagel annotations.
+    NOTE: This function cannot guarantee that removed "Annotations" are related to Neurobagel.
+    """
+    result = {}
+    for column, fields in data_dict.items():
+        for field, value in fields.items():
+            if field != "Annotations":
+                result[column] = {field: value}
+    return result
+
+
+def any_non_annotation_changes(current_dict: dict, new_dict: dict) -> bool:
+    """
+    Check if there are any changes in the JSON file that are not related to annotations.
+
+    Parameters
+    ----------
+    current_dict : dict
+        Original JSON file as a dictionary
+    new_dict : dict
+        New JSON file as a dictionary
+
+    Returns
+    -------
+    bool
+    """
+    return extract_non_annotations(current_dict) == extract_non_annotations(
+        new_dict
+    )
+
+
 def match_indentation(current_json: str | None, new_dict: dict) -> str:
     """
     Match the indentation of the original JSON file and updates it with the annotations.

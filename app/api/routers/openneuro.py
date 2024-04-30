@@ -42,6 +42,7 @@ async def upload(data_dictionary: Annotated[dict, Body()]):
     current_content_json = base64.b64decode(
         current_file.json()["content"]
     ).decode("utf-8")
+    current_content_dict = json.loads(current_content_json)
     current_sha = current_file.json()["sha"]
 
     # Catch UserWarnings as exceptions so we can store them in the response
@@ -57,6 +58,11 @@ async def upload(data_dictionary: Annotated[dict, Body()]):
         return JSONResponse(
             status_code=400, content=FailedUpload(error=str(e)).dict()
         )
+
+    if utils.any_non_annotation_changes(current_content_dict, data_dictionary):
+        # TODO: Turn this into a list?
+        # TODO: Add to commit message??
+        validation_warning = "The data dictionary selected for upload contains changes that are not related to Neurobagel annotations."
 
     new_content_json = utils.match_indentation(
         current_content_json, data_dictionary
