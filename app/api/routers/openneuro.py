@@ -60,7 +60,7 @@ async def upload(data_dictionary: Annotated[dict, Body()]):
             status_code=400, content=FailedUpload(error=str(e)).dict()
         )
 
-    if utils.any_non_annotation_changes(current_content_dict, data_dictionary):
+    if utils.only_annotation_changes(current_content_dict, data_dictionary):
         # TODO: Also add as note to commit message?
         upload_warnings.append(
             "The uploaded data dictionary may contain changes that are not related to Neurobagel annotations."

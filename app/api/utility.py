@@ -14,9 +14,9 @@ def extract_non_annotations(data_dict: dict) -> dict:
     return result
 
 
-def any_non_annotation_changes(current_dict: dict, new_dict: dict) -> bool:
+def only_annotation_changes(current_dict: dict, new_dict: dict) -> bool:
     """
-    Check if there are any changes in the JSON file that are not related to annotations.
+    Check if there are only changes in the JSON file that are related to annotations.
 
     Parameters
     ----------
