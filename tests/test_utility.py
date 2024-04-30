@@ -45,100 +45,84 @@ def test_match_annotations(
 
 
 def test_only_annotation_changes(new_dict):
-    assert utils.only_annotation_changes(
-        current_dict={
-            "participant_id": {
-                "Description": "Participant ID",
-            },
-            "age": {
-                "Description": "Age of participant",
-            },
+    bids_only = {
+        "participant_id": {
+            "Description": "Participant ID",
         },
-        new_dict=new_dict,
+        "age": {
+            "Description": "Age of participant",
+        },
+    }
+    bids_with_annotations = new_dict
+
+    assert (
+        utils.only_annotation_changes(
+            current_dict=bids_only,
+            new_dict=bids_with_annotations,
+        )
+        is True
     )
 
-    assert utils.only_annotation_changes(
-        current_dict={
-            "participant_id": {
-                "Description": "Participant ID",
-            },
-            "sex": {
-                "Description": "Sex variable",
-                "Levels": {"0": "Male", "1": "Female"},
-                "Annotations": {
-                    "IsAbout": {"TermURL": "nb:Sex", "Label": "Sex"},
-                    "Levels": {
-                        "0": {"TermURL": "snomed:248153007", "Label": "Male"},
-                        "1": {
-                            "TermURL": "snomed:248152002",
-                            "Label": "Female",
-                        },
+    sex_number_coded_annotated = {
+        "participant_id": {
+            "Description": "Participant ID",
+        },
+        "sex": {
+            "Description": "Sex",
+            "Levels": {"0": "Male", "1": "Female"},
+            "Annotations": {
+                "IsAbout": {"TermURL": "nb:Sex", "Label": "Sex"},
+                "Levels": {
+                    "0": {"TermURL": "snomed:248153007", "Label": "Male"},
+                    "1": {
+                        "TermURL": "snomed:248152002",
+                        "Label": "Female",
                     },
-                    "MissingValues": [],
                 },
+                "MissingValues": [],
             },
         },
-        new_dict={
-            "participant_id": {
-                "Description": "Participant ID",
-            },
-            "sex": {
-                "Description": "Sex variable",
-                "Levels": {"0": "Male", "1": "Female"},
-                "Annotations": {
-                    "IsAbout": {"TermURL": "nb:Sex", "Label": "Sex"},
-                    "Levels": {
-                        "0": {"TermURL": "snomed:248153007", "Label": "Male"},
-                        "1": {
-                            "TermURL": "snomed:248152002",
-                            "Label": "Female",
-                        },
-                    },
-                    "MissingValues": ["NaN"],
-                },
-            },
-        },
-    )
+    }
 
-    assert not utils.only_annotation_changes(
-        current_dict={
-            "participant_id": {
-                "Description": "Participant ID",
-            },
-            "sex": {
-                "Description": "Sex variable",
-                "Levels": {"M": "Male", "F": "Female"},
-                "Annotations": {
-                    "IsAbout": {"TermURL": "nb:Sex", "Label": "Sex"},
-                    "Levels": {
-                        "M": {"TermURL": "snomed:248153007", "Label": "Male"},
-                        "F": {
-                            "TermURL": "snomed:248152002",
-                            "Label": "Female",
-                        },
+    sex_number_coded_annotated_with_missing_value = (
+        sex_number_coded_annotated.copy()
+    )
+    sex_number_coded_annotated_with_missing_value["sex"]["Annotations"][
+        "MissingValues"
+    ] = ["NaN"]
+
+    sex_letter_coded_annotated = {
+        "participant_id": {
+            "Description": "Participant ID",
+        },
+        "sex": {
+            "Description": "Sex",
+            "Levels": {"M": "Male", "F": "Female"},
+            "Annotations": {
+                "IsAbout": {"TermURL": "nb:Sex", "Label": "Sex"},
+                "Levels": {
+                    "M": {"TermURL": "snomed:248153007", "Label": "Male"},
+                    "F": {
+                        "TermURL": "snomed:248152002",
+                        "Label": "Female",
                     },
-                    "MissingValues": [],
                 },
+                "MissingValues": [],
             },
         },
-        new_dict={
-            "participant_id": {
-                "Description": "Participant ID",
-            },
-            "sex": {
-                "Description": "Sex variable",
-                "Levels": {"0": "Male", "1": "Female"},
-                "Annotations": {
-                    "IsAbout": {"TermURL": "nb:Sex", "Label": "Sex"},
-                    "Levels": {
-                        "0": {"TermURL": "snomed:248153007", "Label": "Male"},
-                        "1": {
-                            "TermURL": "snomed:248152002",
-                            "Label": "Female",
-                        },
-                    },
-                    "MissingValues": [],
-                },
-            },
-        },
+    }
+
+    assert (
+        utils.only_annotation_changes(
+            current_dict=sex_number_coded_annotated,
+            new_dict=sex_number_coded_annotated_with_missing_value,
+        )
+        is True
+    )
+    assert (
+        utils.only_annotation_changes(
+            current_dict=sex_number_coded_annotated,
+            new_dict=sex_letter_coded_annotated,
+        )
+        is False
     )
