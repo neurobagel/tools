@@ -13,7 +13,7 @@ from ..dictionary_utils import validate_data_dict
 from ..models import (
     FailedUpload,
     SuccessfulUpload,
-    SuccessfulUploadWithWarning,
+    SuccessfulUploadWithWarnings,
 )
 
 # TODO: Error out when PAT doesn't exist in environment
@@ -24,7 +24,7 @@ router = APIRouter(prefix="/openneuro", tags=["openneuro"])
 
 @router.put(
     "/upload",
-    response_model=Union[SuccessfulUpload, SuccessfulUploadWithWarning],
+    response_model=Union[SuccessfulUpload, SuccessfulUploadWithWarnings],
     responses={400: {"model": FailedUpload}},
 )
 async def upload(data_dictionary: Annotated[dict, Body()]):
@@ -45,13 +45,14 @@ async def upload(data_dictionary: Annotated[dict, Body()]):
     current_content_dict = json.loads(current_content_json)
     current_sha = current_file.json()["sha"]
 
-    # Catch UserWarnings as exceptions so we can store them in the response
+    upload_warnings = []
+
+    # Catch validation UserWarnings as exceptions so we can store them in the response
     warnings.simplefilter("error", UserWarning)
-    validation_warning = None
     try:
         validate_data_dict(data_dictionary)
     except UserWarning as w:
-        validation_warning = str(w)
+        upload_warnings.append(str(w))
     except (LookupError, ValueError) as e:
         # NOTE: No validation is performed on a JSONResponse (https://fastapi.tiangolo.com/advanced/response-directly/#return-a-response),
         # but that's okay since we mostly want to see the FailedUpload messages
@@ -60,9 +61,10 @@ async def upload(data_dictionary: Annotated[dict, Body()]):
         )
 
     if utils.any_non_annotation_changes(current_content_dict, data_dictionary):
-        # TODO: Turn this into a list?
-        # TODO: Add to commit message??
-        validation_warning = "The data dictionary selected for upload contains changes that are not related to Neurobagel annotations."
+        # TODO: Also add as note to commit message?
+        upload_warnings.append(
+            "The uploaded data dictionary may contain changes that are not related to Neurobagel annotations."
+        )
 
     new_content_json = utils.match_indentation(
         current_content_json, data_dictionary
@@ -100,9 +102,9 @@ async def upload(data_dictionary: Annotated[dict, Body()]):
     if not response.ok:
         return {"error": response.content}
 
-    if validation_warning is not None:
-        return SuccessfulUploadWithWarning(
-            contents=data_dictionary, warning=validation_warning
+    if upload_warnings:
+        return SuccessfulUploadWithWarnings(
+            contents=data_dictionary, warnings=upload_warnings
         )
 
     return SuccessfulUpload(contents=data_dictionary)

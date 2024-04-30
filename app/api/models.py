@@ -12,10 +12,10 @@ class SuccessfulUpload(BaseModel, extra="forbid"):
     contents: dict
 
 
-class SuccessfulUploadWithWarning(SuccessfulUpload):
+class SuccessfulUploadWithWarnings(SuccessfulUpload):
     """Data model for a response to a successful upload of a file with warnings."""
 
-    warning: str
+    warnings: list
 
 
 class FailedUpload(BaseModel):
