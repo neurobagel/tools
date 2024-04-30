@@ -86,7 +86,6 @@ async def upload(data_dictionary: Annotated[dict, Body()]):
     # base64 encode, and finally decode from base64 bytestring back
     # to plaintext with utf decode.
     new_content_b64 = base64.b64encode(
-        # TODO: Make indentation dynamic
         new_content_json.encode("utf-8")
     ).decode("utf-8")
 
@@ -101,10 +100,8 @@ async def upload(data_dictionary: Annotated[dict, Body()]):
 
     if not response.ok:
         return {"error": response.content}
-
     if upload_warnings:
         return SuccessfulUploadWithWarnings(
             contents=data_dictionary, warnings=upload_warnings
         )
-
     return SuccessfulUpload(contents=data_dictionary)
