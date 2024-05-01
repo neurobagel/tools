@@ -60,7 +60,7 @@ def get_indentation(json_str: str) -> tuple[Union[str, None], int]:
     indent_num = 0
     indent_char = None
 
-    for line_num, line in json_str.splitlines():
+    for line_num, line in enumerate(json_str.splitlines()):
         if not line.startswith("{"):
             for char in line:
                 if char not in (" ", "\t"):
