@@ -8,11 +8,12 @@ import requests
 from fastapi import APIRouter, Body
 from fastapi.responses import JSONResponse
 
+from .. import utility as utils
 from ..dictionary_utils import validate_data_dict
 from ..models import (
     FailedUpload,
     SuccessfulUpload,
-    SuccessfulUploadWithWarning,
+    SuccessfulUploadWithWarnings,
 )
 
 # TODO: Error out when PAT doesn't exist in environment
@@ -23,7 +24,7 @@ router = APIRouter(prefix="/openneuro", tags=["openneuro"])
 
 @router.put(
     "/upload",
-    response_model=Union[SuccessfulUpload, SuccessfulUploadWithWarning],
+    response_model=Union[SuccessfulUpload, SuccessfulUploadWithWarnings],
     responses={400: {"model": FailedUpload}},
 )
 async def upload(data_dictionary: Annotated[dict, Body()]):
@@ -41,15 +42,17 @@ async def upload(data_dictionary: Annotated[dict, Body()]):
     current_content_json = base64.b64decode(
         current_file.json()["content"]
     ).decode("utf-8")
+    current_content_dict = json.loads(current_content_json)
     current_sha = current_file.json()["sha"]
 
-    # Catch UserWarnings as exceptions so we can store them in the response
+    upload_warnings = []
+
+    # Catch validation UserWarnings as exceptions so we can store them in the response
     warnings.simplefilter("error", UserWarning)
-    validation_warning = None
     try:
         validate_data_dict(data_dictionary)
     except UserWarning as w:
-        validation_warning = str(w)
+        upload_warnings.append(str(w))
     except (LookupError, ValueError) as e:
         # NOTE: No validation is performed on a JSONResponse (https://fastapi.tiangolo.com/advanced/response-directly/#return-a-response),
         # but that's okay since we mostly want to see the FailedUpload messages
@@ -57,8 +60,32 @@ async def upload(data_dictionary: Annotated[dict, Body()]):
             status_code=400, content=FailedUpload(error=str(e)).dict()
         )
 
-    # TODO: Fix this once we have dynamic indentation
-    new_content_json = json.dumps(data_dictionary, indent=4)
+    if utils.only_annotation_changes(current_content_dict, data_dictionary):
+        # TODO: Also add as note to commit message?
+        upload_warnings.append(
+            "The uploaded data dictionary may contain changes that are not related to Neurobagel annotations."
+        )
+
+    # TODO: Use sensible defaults when there is no existing JSON file for the repo
+    try:
+        current_indent_char, current_indent_level = utils.get_indentation(
+            current_content_json
+        )
+        current_newline_char, is_multiline = utils.get_newline_info(
+            current_content_json
+        )
+        new_content_json = utils.dict_to_formatted_json(
+            data_dict=data_dictionary,
+            indent_char=current_indent_char,
+            indent_num=current_indent_level,
+            newline_char=current_newline_char,
+            is_multiline=is_multiline,
+        )
+    except ValueError as e:
+        return JSONResponse(
+            status_code=400,
+            content=FailedUpload(error=str(e)).dict(),
+        )
 
     # NOTE: Comparing base64 strings doesn't seem to be sufficient for detecting changes. Might be because of differences in encoding?
     # So, we'll compare the JSON strings instead (we do this instead of comparing the dictionaries directly to be able to detect changes in indentation, etc.).
@@ -69,14 +96,14 @@ async def upload(data_dictionary: Annotated[dict, Body()]):
                 error="The content selected for upload is the same in as the target file."
             ).dict(),
         )
+    # TODO: Add warning if the dictionary contents are the same? i.e., without formatting
 
-    # To send our data over the network, we need to turn it into 
+    # To send our data over the network, we need to turn it into
     # ascii text by encoding with base64. Base64 takes bytestrings
-    # as input. So first we encode to bytestring (with utf), then we 
+    # as input. So first we encode to bytestring (with utf), then we
     # base64 encode, and finally decode from base64 bytestring back
     # to plaintext with utf decode.
     new_content_b64 = base64.b64encode(
-        # TODO: Make indentation dynamic
         new_content_json.encode("utf-8")
     ).decode("utf-8")
 
@@ -91,10 +118,8 @@ async def upload(data_dictionary: Annotated[dict, Body()]):
 
     if not response.ok:
         return {"error": response.content}
-
-    if validation_warning is not None:
-        return SuccessfulUploadWithWarning(
-            contents=data_dictionary, warning=validation_warning
+    if upload_warnings:
+        return SuccessfulUploadWithWarnings(
+            contents=data_dictionary, warnings=upload_warnings
         )
-
     return SuccessfulUpload(contents=data_dictionary)
