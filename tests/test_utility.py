@@ -4,7 +4,7 @@ from app.api import utility as utils
 
 
 @pytest.fixture()
-def new_dict():
+def example_new_dict():
     return {
         "participant_id": {
             "Description": "Participant ID",
@@ -31,7 +31,7 @@ def new_dict():
 
 
 @pytest.mark.parametrize(
-    "example_json, indent_char, indent_num",
+    "original_json, indent_char, indent_num",
     [
         ("0_indents.json", None, 0),
         ("3_indents.json", " ", 3),
@@ -41,16 +41,16 @@ def new_dict():
 def test_get_indentation(
     read_json_as_str,
     original_dicts_path,
-    example_json,
+    original_json,
     indent_char,
     indent_num,
 ):
-    json_str = read_json_as_str(original_dicts_path / example_json)
+    json_str = read_json_as_str(original_dicts_path / original_json)
     assert (indent_char, indent_num) == utils.get_indentation(json_str)
 
 
 @pytest.mark.parametrize(
-    "example_json, expected_char, expected_multiline",
+    "original_json, expected_char, expected_multiline",
     [
         ("0_indents.json", "\n", True),
         ("0_indents_singleline_nonewline.json", None, False),
@@ -60,40 +60,40 @@ def test_get_indentation(
 def test_get_newline_info(
     read_json_as_str,
     original_dicts_path,
-    example_json,
+    original_json,
     expected_char,
     expected_multiline,
 ):
-    json_str = read_json_as_str(original_dicts_path / example_json)
+    json_str = read_json_as_str(original_dicts_path / original_json)
     assert (expected_char, expected_multiline) == utils.get_newline_info(
         json_str
     )
 
 
 @pytest.mark.parametrize(
-    "example_json, indent_char, indent_num, newline_char, multiline",
+    "indent_char, indent_num, newline_char, multiline, expected_json",
     [
-        ("0_indents.json", None, 0, "\n", True),
-        ("3_indents.json", " ", 3, "\n", True),
-        ("2tab_indents.json", "\t", 2, "\n", True),
-        ("0_indents_singleline_nonewline.json", None, 0, None, False),
-        ("0_indents_singleline_withnewline.json", None, 0, "\n", False),
+        (None, 0, "\n", True, "0_indents.json"),
+        (" ", 3, "\n", True, "3_indents.json"),
+        ("\t", 2, "\n", True, "2tab_indents.json"),
+        (None, 0, None, False, "0_indents_singleline_nonewline.json"),
+        (None, 0, "\n", False, "0_indents_singleline_nonewline.json"),
     ],
 )
 def test_dict_to_formatted_json(
     read_json_as_str,
-    new_dict,
+    example_new_dict,
     updated_dicts_path,
-    example_json,
     indent_char,
     indent_num,
     newline_char,
     multiline,
+    expected_json,
 ):
-    expected_json = read_json_as_str(updated_dicts_path / example_json)
+    expected_json = read_json_as_str(updated_dicts_path / expected_json)
     assert (
         utils.dict_to_formatted_json(
-            data_dict=new_dict,
+            data_dict=example_new_dict,
             indent_char=indent_char,
             indent_num=indent_num,
             newline_char=newline_char,
@@ -103,7 +103,7 @@ def test_dict_to_formatted_json(
     )
 
 
-def test_only_annotation_changes(new_dict):
+def test_only_annotation_changes(example_new_dict):
     bids_only = {
         "participant_id": {
             "Description": "Participant ID",
@@ -112,7 +112,7 @@ def test_only_annotation_changes(new_dict):
             "Description": "Age of participant",
         },
     }
-    bids_with_annotations = new_dict
+    bids_with_annotations = example_new_dict
 
     assert (
         utils.only_annotation_changes(
