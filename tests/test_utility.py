@@ -30,18 +30,34 @@ def new_dict():
     }
 
 
-@pytest.mark.parametrize("example_json", ["0_indents.json", "3_indents.json"])
-def test_match_annotations(
-    new_dict,
+@pytest.mark.parametrize(
+    "example_json, indent_char, indent_num",
+    [
+        ("0_indents.json", None, 0),
+        ("3_indents.json", " ", 3),
+        ("2tab_indents.json", "\t", 2),
+    ],
+)
+def test_get_indentation(
     read_json_as_str,
     original_dicts_path,
-    updated_dicts_path,
     example_json,
+    indent_char,
+    indent_num,
 ):
-    current_json = read_json_as_str(original_dicts_path / example_json)
-    expected_json = read_json_as_str(updated_dicts_path / example_json)
+    json_str = read_json_as_str(original_dicts_path / example_json)
+    assert (indent_char, indent_num) == utils.get_indentation(json_str)
 
-    assert utils.match_indentation(current_json, new_dict) == expected_json
+
+@pytest.mark.parametrize(
+    "example_json, expected_char",
+    [("0_indents.json", "\n"), ("0_indents_nonewline.json", None)],
+)
+def test_get_newline_character(
+    read_json_as_str, original_dicts_path, example_json, expected_char
+):
+    json_str = read_json_as_str(original_dicts_path / example_json)
+    assert expected_char == utils.get_newline_character(json_str)
 
 
 def test_only_annotation_changes(new_dict):
