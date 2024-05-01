@@ -27,18 +27,30 @@ router = APIRouter(prefix="/openneuro", tags=["openneuro"])
     response_model=Union[SuccessfulUpload, SuccessfulUploadWithWarnings],
     responses={400: {"model": FailedUpload}},
 )
-async def upload(data_dictionary: Annotated[dict, Body()]):
-    # TODO: Populate URL based on path parameter (and switch to OpenNeuroDatasets-JSONLD target)
-    # TODO: Check if **repo** itself exists first
-    url = "https://api.github.com/repos/neurobagel/test_json/contents/example_synthetic.json"
+async def upload(dataset_id: str, data_dictionary: Annotated[dict, Body()]):
+    # TODO: Handle network errors
+    repo_url = (
+        f"https://api.github.com/repos/OpenNeuroDatasets-JSONLD/{dataset_id}"
+    )
+    file_url = f"{repo_url}/contents/participants.json"
     headers = {
         "Accept": "application/vnd.github+json",
         "Authorization": "Bearer " + GH_PAT,
         "X-GitHub-Api-Version": "2022-11-28",
     }
 
+    response = requests.get(repo_url, headers=headers)
+    # TODO: Do we need to explicitly handle 301 Moved permanently responses?
+    if not response.ok:
+        return JSONResponse(
+            status_code=400,
+            content=FailedUpload(
+                error=f"{response.status_code}: {response.reason}. Please ensure you have provided the correct repository ID."
+            ).dict(),
+        )
+
     # TODO: If not exists, create a new file instead (use different GitHub API endpoint)
-    current_file = requests.get(url, headers=headers)
+    current_file = requests.get(file_url, headers=headers)
     current_content_json = base64.b64decode(
         current_file.json()["content"]
     ).decode("utf-8")
@@ -114,10 +126,12 @@ async def upload(data_dictionary: Annotated[dict, Body()]):
     }
 
     # We use json.dumps to ensure the payload is not form-encoded (the GitHub API expects JSON)
-    response = requests.put(url, headers=headers, data=json.dumps(payload))
+    response = requests.put(
+        file_url, headers=headers, data=json.dumps(payload)
+    )
 
     if not response.ok:
-        return {"error": response.content}
+        return {"error": f"{response.status_code}: {response.reason}"}
     if upload_warnings:
         return SuccessfulUploadWithWarnings(
             contents=data_dictionary, warnings=upload_warnings
