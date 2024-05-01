@@ -71,7 +71,7 @@ async def upload(data_dictionary: Annotated[dict, Body()]):
         current_indent_char, current_indent_level = utils.get_indentation(
             current_content_json
         )
-        current_newline_char = utils.get_newline_character(
+        current_newline_char, is_multiline = utils.get_newline_info(
             current_content_json
         )
         new_content_json = utils.dict_to_formatted_json(
@@ -79,6 +79,7 @@ async def upload(data_dictionary: Annotated[dict, Body()]):
             indent_char=current_indent_char,
             indent_num=current_indent_level,
             newline_char=current_newline_char,
+            is_multiline=is_multiline,
         )
     except ValueError as e:
         return JSONResponse(
@@ -95,6 +96,7 @@ async def upload(data_dictionary: Annotated[dict, Body()]):
                 error="The content selected for upload is the same in as the target file."
             ).dict(),
         )
+    # TODO: Add warning if the dictionary contents are the same? i.e., without formatting
 
     # To send our data over the network, we need to turn it into
     # ascii text by encoding with base64. Base64 takes bytestrings

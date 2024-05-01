@@ -79,23 +79,38 @@ def get_indentation(json_str: str) -> tuple[Union[str, None], int]:
     return indent_char, indent_num
 
 
-def get_newline_character(json_str: str) -> Union[str, None]:
+def get_newline_info(json_str: str) -> tuple[Union[str, None], bool]:
     """
-    Extract newline character used in a JSON string, if any.
+    Extract newline character used in a JSON string, if any, based on the first detected line.
     NOTE: Does not account for use of mixed newline characters in a file.
+
+    Parameters
+    ----------
+    json_str : str
+        JSON string
+
+    Returns
+    -------
+    tuple[Union[str, None], bool]
+        Tuple containing:
+            - newline_char : str or None
+                The detected newline character
+            - multiline : bool
+                Whether the JSON string spans multiple lines
     """
     newline_char = None
+    multiline = False
 
-    for line in json_str.splitlines(keepends=True):
+    for line_num, line in enumerate(json_str.splitlines(keepends=True)):
+        if line_num > 0:
+            multiline = True
+            break
         for e in ("\r\n", "\n"):
             if line.endswith(e):
                 newline_char = e
                 break
-        # # Might not be necessary? Maybe to help remove empty lines?
-        # if newline_char:
-        #     line = line.rstrip(newline_char)
 
-    return newline_char
+    return newline_char, multiline
 
 
 def replace_newline_characters(
@@ -112,11 +127,30 @@ def dict_to_formatted_json(
     indent_char: Union[str, None],
     indent_num: int,
     newline_char: Union[str, None],
+    multiline: bool,
 ) -> str:
     """
     Convert a dict to a JSON string with the specified indentation and newline characters.
+    NOTE: This does not necessarily preserve existing item or field separators, e.g., "key": "value" vs "key":"value".
     """
-    indent = indent_char * indent_num if indent_char else None
-    indented_json = json.dumps(data_dict, indent=indent)
+    # If there is any indentation
+    if indent_char is not None:
+        indent = indent_char * indent_num
+    # If there is no indentation AND the string spans a single line
+    elif newline_char is None or not multiline:
+        # This enables the most compact representation, without any newlines but keeping spaces between items
+        # (See https://docs.python.org/3/library/json.html#json.dump)
+        indent = None
+    # If there is no indentation
+    else:
+        # This still keeps the default newlines
+        indent = 0
 
-    return replace_newline_characters(indented_json, newline_char)
+    formatted_json = json.dumps(data_dict, indent=indent)
+
+    if newline_char is not None:
+        formatted_json = replace_newline_characters(
+            formatted_json, newline_char
+        )
+
+    return formatted_json

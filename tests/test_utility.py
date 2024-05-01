@@ -50,14 +50,57 @@ def test_get_indentation(
 
 
 @pytest.mark.parametrize(
-    "example_json, expected_char",
-    [("0_indents.json", "\n"), ("0_indents_nonewline.json", None)],
+    "example_json, expected_char, expected_multiline",
+    [
+        ("0_indents.json", "\n", True),
+        ("0_indents_singleline_nonewline.json", None, False),
+        ("0_indents_singleline_withnewline.json", "\n", False),
+    ],
 )
-def test_get_newline_character(
-    read_json_as_str, original_dicts_path, example_json, expected_char
+def test_get_newline_info(
+    read_json_as_str,
+    original_dicts_path,
+    example_json,
+    expected_char,
+    expected_multiline,
 ):
     json_str = read_json_as_str(original_dicts_path / example_json)
-    assert expected_char == utils.get_newline_character(json_str)
+    assert (expected_char, expected_multiline) == utils.get_newline_info(
+        json_str
+    )
+
+
+@pytest.mark.parametrize(
+    "example_json, indent_char, indent_num, newline_char, multiline",
+    [
+        ("0_indents.json", None, 0, "\n", True),
+        ("3_indents.json", " ", 3, "\n", True),
+        ("2tab_indents.json", "\t", 2, "\n", True),
+        ("0_indents_singleline_nonewline.json", None, 0, None, False),
+        ("0_indents_singleline_withnewline.json", None, 0, "\n", False),
+    ],
+)
+def test_dict_to_formatted_json(
+    read_json_as_str,
+    new_dict,
+    updated_dicts_path,
+    example_json,
+    indent_char,
+    indent_num,
+    newline_char,
+    multiline,
+):
+    expected_json = read_json_as_str(updated_dicts_path / example_json)
+    assert (
+        utils.dict_to_formatted_json(
+            data_dict=new_dict,
+            indent_char=indent_char,
+            indent_num=indent_num,
+            newline_char=newline_char,
+            multiline=multiline,
+        )
+        == expected_json
+    )
 
 
 def test_only_annotation_changes(new_dict):
