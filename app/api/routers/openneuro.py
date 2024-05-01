@@ -79,7 +79,7 @@ async def upload(data_dictionary: Annotated[dict, Body()]):
             indent_char=current_indent_char,
             indent_num=current_indent_level,
             newline_char=current_newline_char,
-            is_multiline=is_multiline,
+            multiline=is_multiline,
         )
     except ValueError as e:
         return JSONResponse(
