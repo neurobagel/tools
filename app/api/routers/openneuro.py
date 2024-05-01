@@ -66,9 +66,25 @@ async def upload(data_dictionary: Annotated[dict, Body()]):
             "The uploaded data dictionary may contain changes that are not related to Neurobagel annotations."
         )
 
-    new_content_json = utils.match_indentation(
-        current_content_json, data_dictionary
-    )
+    # TODO: Use sensible defaults when there is no existing JSON file for the repo
+    try:
+        current_indent_char, current_indent_level = utils.get_indentation(
+            current_content_json
+        )
+        current_newline_char = utils.get_newline_character(
+            current_content_json
+        )
+        new_content_json = utils.dict_to_formatted_json(
+            data_dict=data_dictionary,
+            indent_char=current_indent_char,
+            indent_num=current_indent_level,
+            newline_char=current_newline_char,
+        )
+    except ValueError as e:
+        return JSONResponse(
+            status_code=400,
+            content=FailedUpload(error=str(e)).dict(),
+        )
 
     # NOTE: Comparing base64 strings doesn't seem to be sufficient for detecting changes. Might be because of differences in encoding?
     # So, we'll compare the JSON strings instead (we do this instead of comparing the dictionaries directly to be able to detect changes in indentation, etc.).
