@@ -39,8 +39,11 @@ async def upload(dataset_id: str, data_dictionary: Annotated[dict, Body()]):
         "X-GitHub-Api-Version": "2022-11-28",
     }
 
+    upload_warnings = []
+    file_exists = False
+
     response = requests.get(repo_url, headers=headers)
-    # TODO: Do we need to explicitly handle 301 Moved permanently responses?
+    # TODO: Should we explicitly handle 301 Moved permanently responses? These would fall under response.ok.
     if not response.ok:
         return JSONResponse(
             status_code=400,
@@ -49,15 +52,19 @@ async def upload(dataset_id: str, data_dictionary: Annotated[dict, Body()]):
             ).dict(),
         )
 
-    # TODO: If not exists, create a new file instead (use different GitHub API endpoint)
     current_file = requests.get(file_url, headers=headers)
-    current_content_json = base64.b64decode(
-        current_file.json()["content"]
-    ).decode("utf-8")
-    current_content_dict = json.loads(current_content_json)
-    current_sha = current_file.json()["sha"]
-
-    upload_warnings = []
+    if current_file.ok:
+        file_exists = True
+        current_content_json = base64.b64decode(
+            current_file.json()["content"]
+        ).decode("utf-8")
+        current_content_dict = json.loads(current_content_json)
+        current_sha = current_file.json()["sha"]
+    # TODO: Should we be more specific here, i.e., checking for a 404 status code?
+    else:
+        upload_warnings.append(
+            "No existing participants.json file found in the repository. A new file will be created."
+        )
 
     # Catch validation UserWarnings as exceptions so we can store them in the response
     warnings.simplefilter("error", UserWarning)
@@ -72,43 +79,50 @@ async def upload(dataset_id: str, data_dictionary: Annotated[dict, Body()]):
             status_code=400, content=FailedUpload(error=str(e)).dict()
         )
 
-    if utils.only_annotation_changes(current_content_dict, data_dictionary):
-        # TODO: Also add as note to commit message?
-        upload_warnings.append(
-            "The uploaded data dictionary may contain changes that are not related to Neurobagel annotations."
-        )
+    if file_exists:
+        if not utils.only_annotation_changes(
+            current_content_dict, data_dictionary
+        ):
+            # TODO: Also add as note to commit message?
+            upload_warnings.append(
+                "The uploaded data dictionary may contain changes that are not related to Neurobagel annotations."
+            )
 
-    # TODO: Use sensible defaults when there is no existing JSON file for the repo
-    try:
-        current_indent_char, current_indent_level = utils.get_indentation(
-            current_content_json
-        )
-        current_newline_char, is_multiline = utils.get_newline_info(
-            current_content_json
-        )
-        new_content_json = utils.dict_to_formatted_json(
-            data_dict=data_dictionary,
-            indent_char=current_indent_char,
-            indent_num=current_indent_level,
-            newline_char=current_newline_char,
-            multiline=is_multiline,
-        )
-    except ValueError as e:
-        return JSONResponse(
-            status_code=400,
-            content=FailedUpload(error=str(e)).dict(),
-        )
+        try:
+            current_indent_char, current_indent_level = utils.get_indentation(
+                current_content_json
+            )
+            current_newline_char, is_multiline = utils.get_newline_info(
+                current_content_json
+            )
+            new_content_json = utils.dict_to_formatted_json(
+                data_dict=data_dictionary,
+                indent_char=current_indent_char,
+                indent_num=current_indent_level,
+                newline_char=current_newline_char,
+                multiline=is_multiline,
+            )
+        except ValueError as e:
+            return JSONResponse(
+                status_code=400,
+                content=FailedUpload(error=str(e)).dict(),
+            )
 
-    # NOTE: Comparing base64 strings doesn't seem to be sufficient for detecting changes. Might be because of differences in encoding?
-    # So, we'll compare the JSON strings instead (we do this instead of comparing the dictionaries directly to be able to detect changes in indentation, etc.).
-    if new_content_json == current_content_json:
-        return JSONResponse(
-            status_code=400,
-            content=FailedUpload(
-                error="The content selected for upload is the same in as the target file."
-            ).dict(),
-        )
-    # TODO: Add warning if the dictionary contents are the same? i.e., without formatting
+        # NOTE: Comparing base64 strings doesn't seem to be sufficient for detecting changes. Might be because of differences in encoding?
+        # So, we'll compare the JSON strings instead (we do this instead of comparing the dictionaries directly to be able to detect changes in indentation, etc.).
+        if new_content_json == current_content_json:
+            return JSONResponse(
+                status_code=400,
+                content=FailedUpload(
+                    error="The content selected for upload is the same in as the target file."
+                ).dict(),
+            )
+        # TODO: Add warning if the dictionary contents are the same? i.e., without formatting
+
+        commit_message = "[bot] Update participants.json"
+    else:
+        new_content_json = json.dumps(data_dictionary, indent=4)
+        commit_message = "[bot] Create participants.json"
 
     # To send our data over the network, we need to turn it into
     # ascii text by encoding with base64. Base64 takes bytestrings
@@ -120,9 +134,9 @@ async def upload(dataset_id: str, data_dictionary: Annotated[dict, Body()]):
     ).decode("utf-8")
 
     payload = {
-        "message": "[bot] Updating participants.json",
+        "message": commit_message,
         "content": new_content_b64,
-        "sha": current_sha,
+        **{"sha": current_sha if file_exists else {}},
     }
 
     # We use json.dumps to ensure the payload is not form-encoded (the GitHub API expects JSON)
