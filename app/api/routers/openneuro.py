@@ -81,12 +81,21 @@ async def upload(dataset_id: str, data_dictionary: Annotated[dict, Body()]):
         )
 
     if file_exists:
+        commit_message = "[bot] Update participants.json"
+
         if not utils.only_annotation_changes(
             current_content_dict, data_dictionary
         ):
-            # TODO: Also add as note to commit message?
             upload_warnings.append(
                 "The uploaded data dictionary may contain changes that are not related to Neurobagel annotations."
+            )
+            commit_message += (
+                "\n- includes changes unrelated to Neurobagel annotations"
+            )
+        # Compare dictionaries directly to check for identical contents (ignoring formatting and item order)
+        if current_content_dict == data_dictionary:
+            upload_warnings.append(
+                "The (unformatted) dictionary contents of the uploaded JSON file are the same as the existing JSON file."
             )
 
         try:
@@ -118,12 +127,9 @@ async def upload(dataset_id: str, data_dictionary: Annotated[dict, Body()]):
                     error="The content selected for upload is the same in as the target file."
                 ).dict(),
             )
-        # TODO: Add warning if the dictionary contents are the same? i.e., without formatting
-
-        commit_message = "[bot] Update participants.json"
     else:
-        new_content_json = json.dumps(data_dictionary, indent=4)
         commit_message = "[bot] Create participants.json"
+        new_content_json = json.dumps(data_dictionary, indent=4)
 
     # To send our data over the network, we need to turn it into
     # ascii text by encoding with base64. Base64 takes bytestrings
