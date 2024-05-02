@@ -29,6 +29,7 @@ router = APIRouter(prefix="/openneuro", tags=["openneuro"])
 )
 async def upload(dataset_id: str, data_dictionary: Annotated[dict, Body()]):
     # TODO: Handle network errors
+    gh_repo_url = f"https://github.com/OpenNeuroDatasets-JSONLD/{dataset_id}"
     repo_url = (
         f"https://api.github.com/repos/OpenNeuroDatasets-JSONLD/{dataset_id}"
     )
@@ -145,7 +146,12 @@ async def upload(dataset_id: str, data_dictionary: Annotated[dict, Body()]):
     )
 
     if not response.ok:
-        return {"error": f"{response.status_code}: {response.reason}"}
+        return JSONResponse(
+            status_code=400,
+            content=FailedUpload(
+                error=f"Something went wrong when updating or creating participants.json in {gh_repo_url}. {response.status_code}: {response.reason}"
+            ).dict(),
+        )
     if upload_warnings:
         return SuccessfulUploadWithWarnings(
             contents=data_dictionary, warnings=upload_warnings
