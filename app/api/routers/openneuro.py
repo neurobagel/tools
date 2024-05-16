@@ -1,12 +1,14 @@
 import base64
 import json
 import os
+import secrets
 import warnings
 from typing import Annotated, Union
 
 import requests
-from fastapi import APIRouter, Body
+from fastapi import APIRouter, Body, Depends, HTTPException, status
 from fastapi.responses import JSONResponse
+from fastapi.security import HTTPBasic, HTTPBasicCredentials
 
 from .. import utility as utils
 from ..dictionary_utils import validate_data_dict
@@ -18,14 +20,40 @@ from ..models import (
 
 # TODO: Error out when PAT doesn't exist in environment
 GH_PAT = os.environ.get("GH_PAT")
+API_USERNAME = bytes(os.environ.get("API_USERNAME"), encoding="utf-8")
+API_PASSWORD = bytes(os.environ.get("API_PASSWORD"), encoding="utf-8")
 
 router = APIRouter(prefix="/openneuro", tags=["openneuro"])
 
+security = HTTPBasic()
 
+
+def verify_credentials(credentials: HTTPBasicCredentials = Depends(security)):
+    """Check if the provided credentials are valid. If not, raise an HTTPException."""
+    current_username_bytes = credentials.username.encode("utf-8")
+    is_correct_username = secrets.compare_digest(
+        current_username_bytes, API_USERNAME
+    )
+
+    current_password_bytes = credentials.password.encode("utf-8")
+    is_correct_password = secrets.compare_digest(
+        current_password_bytes, API_PASSWORD
+    )
+
+    if not (is_correct_username and is_correct_password):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect email or password",
+            headers={"WWW-Authenticate": "Basic"},
+        )
+
+
+# For context on how we use dependencies here, see https://fastapi.tiangolo.com/tutorial/dependencies/dependencies-in-path-operation-decorators/
 @router.put(
     "/upload",
     response_model=Union[SuccessfulUpload, SuccessfulUploadWithWarnings],
     responses={400: {"model": FailedUpload}},
+    dependencies=[Depends(verify_credentials)],
 )
 async def upload(dataset_id: str, data_dictionary: Annotated[dict, Body()]):
     # TODO: Handle network errors
