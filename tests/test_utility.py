@@ -3,33 +3,6 @@ import pytest
 from app.api import utility as utils
 
 
-@pytest.fixture()
-def example_new_dict():
-    return {
-        "participant_id": {
-            "Description": "Participant ID",
-            "Annotations": {
-                "IsAbout": {
-                    "TermURL": "nb:ParticipantID",
-                    "Label": "Unique subject identifier",
-                },
-                "Identifies": "participant",
-            },
-        },
-        "age": {
-            "Description": "Age of participant",
-            "Annotations": {
-                "IsAbout": {"TermURL": "nb:Age", "Label": "Age"},
-                "Transformation": {
-                    "TermURL": "nb:FromFloat",
-                    "Label": "float value",
-                },
-                "MissingValues": [],
-            },
-        },
-    }
-
-
 @pytest.mark.parametrize(
     "original_json, indent_char, indent_num",
     [
