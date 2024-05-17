@@ -18,7 +18,7 @@ from ..models import (
     SuccessfulUploadWithWarnings,
 )
 
-# TODO: Error out when PAT doesn't exist in environment
+# TODO: Error out when these variables are not set
 GH_PAT = os.environ.get("GH_PAT")
 API_USERNAME = bytes(os.environ.get("API_USERNAME"), encoding="utf-8")
 API_PASSWORD = bytes(os.environ.get("API_PASSWORD"), encoding="utf-8")
@@ -48,6 +48,7 @@ def verify_credentials(credentials: HTTPBasicCredentials = Depends(security)):
         )
 
 
+# TODO: Factor out main logic into a CRUD function for easier mocking in tests
 # For context on how we use dependencies here, see https://fastapi.tiangolo.com/tutorial/dependencies/dependencies-in-path-operation-decorators/
 @router.put(
     "/upload",
