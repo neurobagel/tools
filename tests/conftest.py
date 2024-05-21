@@ -1,6 +1,15 @@
 from pathlib import Path
 
 import pytest
+from starlette.testclient import TestClient
+
+from app.main import app
+
+
+@pytest.fixture(scope="module")
+def test_app():
+    client = TestClient(app)
+    yield client
 
 
 @pytest.fixture()
@@ -22,3 +31,30 @@ def original_dicts_path():
 @pytest.fixture(scope="session")
 def updated_dicts_path():
     return Path(__file__).absolute().parent / "test_data" / "updated"
+
+
+@pytest.fixture()
+def example_new_dict():
+    return {
+        "participant_id": {
+            "Description": "Participant ID",
+            "Annotations": {
+                "IsAbout": {
+                    "TermURL": "nb:ParticipantID",
+                    "Label": "Unique subject identifier",
+                },
+                "Identifies": "participant",
+            },
+        },
+        "age": {
+            "Description": "Age of participant",
+            "Annotations": {
+                "IsAbout": {"TermURL": "nb:Age", "Label": "Age"},
+                "Transformation": {
+                    "TermURL": "nb:FromFloat",
+                    "Label": "float value",
+                },
+                "MissingValues": [],
+            },
+        },
+    }
