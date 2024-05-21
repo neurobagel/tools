@@ -29,4 +29,4 @@ jobs:
           context: .
           file: ./Dockerfile
           push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/openneuro_uploader_api:nightly
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/openneuro_upload:nightly
