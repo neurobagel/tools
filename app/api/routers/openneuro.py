@@ -43,7 +43,7 @@ def verify_credentials(credentials: HTTPBasicCredentials = Depends(security)):
     if not (is_correct_username and is_correct_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email or password",
+            detail="Incorrect username or password",
             headers={"WWW-Authenticate": "Basic"},
         )
 
