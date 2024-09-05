@@ -1,14 +1,13 @@
 import base64
 import json
 import os
-import secrets
 import warnings
 from typing import Annotated, Union
 
 import requests
-from fastapi import APIRouter, Body, Depends, HTTPException, status
+from fastapi import APIRouter, Body
 from fastapi.responses import JSONResponse
-from fastapi.security import HTTPBasic, HTTPBasicCredentials
+from github import Auth, GithubIntegration
 
 from .. import utility as utils
 from ..dictionary_utils import validate_data_dict
@@ -21,32 +20,10 @@ from ..models import (
 
 # TODO: Error out when these variables are not set
 GH_PAT = os.environ.get("GH_PAT")
-API_USERNAME = bytes(os.environ.get("API_USERNAME"), encoding="utf-8")
-API_PASSWORD = bytes(os.environ.get("API_PASSWORD"), encoding="utf-8")
+
+DATASETS_ORG = "OpenNeuroDatasets-JSONLD"
 
 router = APIRouter(prefix="/openneuro", tags=["openneuro"])
-
-security = HTTPBasic()
-
-
-def verify_credentials(credentials: HTTPBasicCredentials = Depends(security)):
-    """Check if the provided credentials are valid. If not, raise an HTTPException."""
-    current_username_bytes = credentials.username.encode("utf-8")
-    is_correct_username = secrets.compare_digest(
-        current_username_bytes, API_USERNAME
-    )
-
-    current_password_bytes = credentials.password.encode("utf-8")
-    is_correct_password = secrets.compare_digest(
-        current_password_bytes, API_PASSWORD
-    )
-
-    if not (is_correct_username and is_correct_password):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password",
-            headers={"WWW-Authenticate": "Basic"},
-        )
 
 
 # TODO: Factor out main logic into a CRUD function for easier mocking in tests
@@ -55,7 +32,6 @@ def verify_credentials(credentials: HTTPBasicCredentials = Depends(security)):
     "/upload",
     response_model=Union[SuccessfulUpload, SuccessfulUploadWithWarnings],
     responses={400: {"model": FailedUpload}},
-    dependencies=[Depends(verify_credentials)],
 )
 async def upload(
     dataset_id: str,
@@ -166,6 +142,38 @@ async def upload(
     else:
         commit_message = "[bot] Create participants.json"
         new_content_json = json.dumps(data_dictionary, indent=4)
+
+    # TODO: Error out when these variables are not set
+    APP_ID = os.environ.get("NB_BOT_ID")
+    APP_PRIVATE_KEY_PATH = os.environ.get("NB_BOT_KEY_PATH")
+    # Load private key from file to avoid newline issues when the key is set in .env
+    with open(APP_PRIVATE_KEY_PATH, "r") as f:
+        APP_PRIVATE_KEY = f.read()
+
+    # Create a GitHub instance with the appropriate authentication
+    # auth = Auth.Token(GH_PAT)
+    auth = Auth.AppAuth(APP_ID, APP_PRIVATE_KEY)
+    gi = GithubIntegration(auth=auth)
+    # org = g.get_organization("OpenNeuroDatasets-JSONLD")
+
+    # Get the installation ID for the Neurobagel Bot app (for the OpenNeuroDatasets-JSONLD organization)
+    installation = gi.get_org_installation(DATASETS_ORG)
+    installation_id = installation.id
+    # TODO: Remove - for debugging
+    print(installation_id)
+
+    g = gi.get_github_for_installation(installation_id)
+
+    # Create a new branch to commit the data dictionary to
+    repo = g.get_repo(f"{DATASETS_ORG}/{dataset_id}")
+    # TODO: Automate creation of new branch name
+    repo.create_git_ref(
+        ref="refs/heads/branch-name", sha=repo.get_branch("main").commit.sha
+    )
+
+    # TODO: Commit data dictionary to branch
+
+    # TODO: Open PR
 
     # To send our data over the network, we need to turn it into
     # ascii text by encoding with base64. Base64 takes bytestrings
