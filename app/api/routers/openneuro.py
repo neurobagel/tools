@@ -13,6 +13,7 @@ from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from .. import utility as utils
 from ..dictionary_utils import validate_data_dict
 from ..models import (
+    Contributor,
     FailedUpload,
     SuccessfulUpload,
     SuccessfulUploadWithWarnings,
@@ -56,7 +57,12 @@ def verify_credentials(credentials: HTTPBasicCredentials = Depends(security)):
     responses={400: {"model": FailedUpload}},
     dependencies=[Depends(verify_credentials)],
 )
-async def upload(dataset_id: str, data_dictionary: Annotated[dict, Body()]):
+async def upload(
+    dataset_id: str,
+    contributor: Contributor,
+    data_dictionary: Annotated[dict, Body()],
+):
+    # Construct elements for the GitHub API request
     # TODO: Handle network errors
     gh_repo_url = f"https://github.com/OpenNeuroDatasets-JSONLD/{dataset_id}"
     repo_url = (
@@ -72,6 +78,7 @@ async def upload(dataset_id: str, data_dictionary: Annotated[dict, Body()]):
     upload_warnings = []
     file_exists = False
 
+    # Check if the dataset exists
     response = requests.get(repo_url, headers=headers)
     # TODO: Should we explicitly handle 301 Moved permanently responses? These would fall under response.ok.
     if not response.ok:

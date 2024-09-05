@@ -1,6 +1,18 @@
 from pydantic import BaseModel
 
 
+class Contributor(BaseModel):
+    """Data model for a contributor who wants to create/make changes to a dataset's data dictionary."""
+
+    name: str
+    email: str
+    # TODO: Include in UI - should be required?
+    affiliation: str = None
+    gh_username: str = None
+    # TODO: Make required in UI (?)
+    changes_summary: str
+
+
 # NOTE: Because we have multiple successful response models, we need extra="forbid" to
 # ensure that instances of SuccessfulUploadWithWarning are not unintentionally
 # converted/filtered to the parent SuccessfulUpload by FastAPI when returning a response.
