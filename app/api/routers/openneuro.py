@@ -166,9 +166,10 @@ async def upload(
 
     # Create a new branch to commit the data dictionary to
     repo = g.get_repo(f"{DATASETS_ORG}/{dataset_id}")
-    # TODO: Automate creation of new branch name
+    branch_name = utils.create_random_branch_name(contributor.gh_username)
+
     repo.create_git_ref(
-        ref="refs/heads/branch-name", sha=repo.get_branch("main").commit.sha
+        ref=f"refs/heads/{branch_name}", sha=repo.get_branch("main").commit.sha
     )
 
     # TODO: Commit data dictionary to branch

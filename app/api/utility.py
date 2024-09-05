@@ -1,5 +1,24 @@
 import json
+import random
+import string
 from typing import Union
+
+
+def create_random_branch_name(gh_username: str | None = None) -> str:
+    """
+    Generate a random branch name for a pull request in the format 'update-xxxxxx', or optionally,
+    '<username>/update-xxxxxx' if a GitHub username is provided.
+    """
+    # Define the allowed characters for a branch name
+    characters = string.ascii_lowercase + string.digits
+    # Generate a random string of the specified length
+    branch_name = "update-" + "".join(
+        random.choice(characters) for _ in range(6)
+    )
+    if gh_username:
+        branch_name = f"{gh_username}/{branch_name}"
+
+    return branch_name
 
 
 def extract_non_annotations(data_dict: dict) -> dict:
