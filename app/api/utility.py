@@ -3,6 +3,8 @@ import random
 import string
 from typing import Union
 
+from .models import Contributor
+
 
 def create_random_branch_name(gh_username: str | None = None) -> str:
     """
@@ -19,6 +21,34 @@ def create_random_branch_name(gh_username: str | None = None) -> str:
         branch_name = f"{gh_username}/{branch_name}"
 
     return branch_name
+
+
+def create_commit_message(contributor: Contributor, commit_body: str) -> str:
+    """Generate a commit message based on the auto-generated main commit body and available contributor info."""
+    return (
+        f"[bot] {commit_body}\n\n"
+        + f"Co-authored-by: {contributor.name} <{contributor.email}>"
+    )
+
+
+def create_pull_request_body(
+    contributor: Contributor, commit_body: str
+) -> str:
+    """
+    Generate a body for the pull request based on the auto-generated main commit message and details provided by the contributor.
+    """
+    # TODO: Ensure that changes summary can handle newlines
+    return (
+        "Bot-generated change overview:\n"
+        + f"{commit_body}\n\n"
+        + "Changes proposed in this pull request:\n"
+        + f"{contributor.changes_summary}\n\n"
+        + "Changes proposed by:\n"
+        + f"Name: {contributor.name} "
+        + (f"({contributor.gh_username})" if contributor.gh_username else "")
+        + "\n"
+        + f"Affiliation: {contributor.affiliation}\n"
+    )
 
 
 def extract_non_annotations(data_dict: dict) -> dict:

@@ -12,6 +12,7 @@ from github.GithubException import GithubException, UnknownObjectException
 from .. import utility as utils
 from ..dictionary_utils import validate_data_dict
 from ..models import (
+    Contributor,
     FailedUpload,
     SuccessfulUpload,
     SuccessfulUploadWithWarnings,
@@ -43,6 +44,17 @@ async def upload(
     affiliation: Annotated[str | None, Form()] = None,
     gh_username: Annotated[str | None, Form()] = None,
 ):
+    # TODO: Switch to using this Pydantic model directly for the /upload route form data once we
+    # upgrade the FastAPI version to >= 0.113.0 (and ensure that Pydantic v1 can still be used)
+    # See https://fastapi.tiangolo.com/tutorial/request-form-models/
+    contributor = Contributor(
+        name=name,
+        email=email,
+        affiliation=affiliation,
+        gh_username=gh_username,
+        changes_summary=changes_summary,
+    )
+
     # TODO: Handle network errors
     gh_repo_url = f"https://github.com/OpenNeuroDatasets-JSONLD/{dataset_id}"
 
@@ -119,8 +131,7 @@ async def upload(
         )
 
     if file_exists:
-        change_message_short = "Update participants.json"
-        commit_message = f"[bot] {change_message_short}"
+        commit_body = "Update participants.json"
 
         if not utils.only_annotation_changes(
             current_content_dict, uploaded_dict
@@ -128,7 +139,7 @@ async def upload(
             upload_warnings.append(
                 "The uploaded data dictionary may contain changes that are not related to Neurobagel annotations."
             )
-            commit_message += (
+            commit_body += (
                 "\n- includes changes unrelated to Neurobagel annotations"
             )
         # Compare dictionaries directly to check for identical contents (ignoring formatting and item order)
@@ -168,27 +179,20 @@ async def upload(
                 ).dict(),
             )
     else:
-        change_message_short = "Add participants.json"
-        commit_message = f"[bot] {change_message_short}"
+        commit_body = "Add participants.json"
         new_content_json = json.dumps(uploaded_dict, indent=4)
 
     # Create a new branch to commit the data dictionary to
-    branch_name = utils.create_random_branch_name(gh_username)
+    branch_name = utils.create_random_branch_name(contributor.gh_username)
     repo.create_git_ref(
         ref=f"refs/heads/{branch_name}",
         sha=repo.get_branch(default_branch).commit.sha,
     )
 
-    # # To send our data over the network, we need to turn it into
-    # # ascii text by encoding with base64. Base64 takes bytestrings
-    # # as input. So first we encode to bytestring (with utf), then we
-    # # base64 encode, and finally decode from base64 bytestring back
-    # # to plaintext with utf decode.
-    # new_content_b64 = base64.b64encode(
-    #     new_content_json.encode("utf-8")
-    # ).decode("utf-8")
-
     # Commit uploaded data dictionary to the new branch, and open a PR
+    commit_message = utils.create_commit_message(
+        contributor=contributor, commit_body=commit_body
+    )
     try:
         if file_exists:
             repo.update_file(
@@ -206,12 +210,14 @@ async def upload(
                 branch=branch_name,
             )
 
-        # TODO: Update PR body
-        pr_body = "FILLER"
+        pr_body = utils.create_pull_request_body(
+            contributor=contributor, commit_body=commit_body
+        )
         repo.create_pull(
             base=default_branch,
             head=branch_name,
-            title=change_message_short,
+            # Get the first line of the commit body as the PR title
+            title=commit_body.splitlines()[0],
             body=pr_body,
         )
     except GithubException as e:

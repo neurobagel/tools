@@ -1,15 +1,14 @@
 from pydantic import BaseModel
 
-# TODO: Switch to using Pydantic model for form data once we upgrade FastAPI version (and ensure that we can still use Pydantic v1 for now)
-# See https://fastapi.tiangolo.com/tutorial/request-form-models/
-# class Contributor(BaseModel):
-#     """Data model for a contributor who wants to create/make changes to a dataset's data dictionary."""
 
-#     name: str
-#     email: str
-#     affiliation: str | None = None
-#     gh_username: str | None = None
-#     changes_summary: str
+class Contributor(BaseModel):
+    """Data model for a contributor who wants to create/make changes to a dataset's data dictionary."""
+
+    name: str
+    email: str
+    affiliation: str | None = None
+    gh_username: str | None = None
+    changes_summary: str
 
 
 # NOTE: Because we have multiple successful response models, we need extra="forbid" to
