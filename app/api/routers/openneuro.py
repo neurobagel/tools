@@ -18,7 +18,7 @@ from ..models import (
     SuccessfulUploadWithWarnings,
 )
 
-# TODO: Error out when these variables are not set
+# TODO: Error out when these variables are not set?
 APP_ID = os.environ.get("NB_BOT_ID")
 APP_PRIVATE_KEY_PATH = os.environ.get("NB_BOT_KEY_PATH")
 
@@ -28,7 +28,6 @@ router = APIRouter(prefix="/openneuro", tags=["openneuro"])
 
 
 # TODO: Factor out main logic into a CRUD function for easier mocking in tests
-# For context on how we use dependencies here, see https://fastapi.tiangolo.com/tutorial/dependencies/dependencies-in-path-operation-decorators/
 @router.put(
     "/upload",
     response_model=Union[SuccessfulUpload, SuccessfulUploadWithWarnings],
@@ -56,8 +55,6 @@ async def upload(
     )
 
     # TODO: Handle network errors
-    gh_repo_url = f"https://github.com/OpenNeuroDatasets-JSONLD/{dataset_id}"
-
     upload_warnings = []
     file_exists = False
 
@@ -83,8 +80,6 @@ async def upload(
     # Get the installation ID for the Neurobagel Bot app (for the OpenNeuroDatasets-JSONLD organization)
     installation = gi.get_org_installation(DATASETS_ORG)
     installation_id = installation.id
-    # TODO: Remove - for debugging
-    print(installation_id)
 
     g = gi.get_github_for_installation(installation_id)
 
@@ -224,7 +219,7 @@ async def upload(
         return JSONResponse(
             status_code=400,
             content=FailedUpload(
-                error=f"Something went wrong when updating or creating participants.json in {gh_repo_url}. {e.status}: {e.data['message']}"
+                error=f"Something went wrong when updating or creating participants.json in {repo.html_url}. {e.status}: {e.data['message']}"
             ).dict(),
         )
 
