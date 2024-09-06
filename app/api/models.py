@@ -17,9 +17,8 @@ class Contributor(BaseModel):
 class SuccessfulUpload(BaseModel, extra="forbid"):
     """Data model for a response to a successful upload of a file."""
 
-    message = "Successfully uploaded file to OpenNeuro-JSONLD."
-    # TODO: Get rid of contents. This doesn't preserve indentation anyways and so is not very useful.
-    contents: dict
+    message = "Successfully uploaded file to OpenNeuroDatasets-JSONLD."
+    pull_request_url: str
 
 
 class SuccessfulUploadWithWarnings(SuccessfulUpload):

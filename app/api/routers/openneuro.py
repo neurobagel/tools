@@ -213,7 +213,7 @@ async def upload(
         pr_body = utils.create_pull_request_body(
             contributor=contributor, commit_body=commit_body
         )
-        repo.create_pull(
+        pr = repo.create_pull(
             base=default_branch,
             head=branch_name,
             # Get the first line of the commit body as the PR title
@@ -230,6 +230,6 @@ async def upload(
 
     if upload_warnings:
         return SuccessfulUploadWithWarnings(
-            contents=uploaded_dict, warnings=upload_warnings
+            pull_request_url=pr.html_url, warnings=upload_warnings
         )
-    return SuccessfulUpload(contents=uploaded_dict)
+    return SuccessfulUpload(pull_request_url=pr.html_url)
