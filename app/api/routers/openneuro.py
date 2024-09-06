@@ -137,6 +137,9 @@ async def upload(
             commit_body += (
                 "\n- includes changes unrelated to Neurobagel annotations"
             )
+        # TODO: See if we actually need this check - it seems redundant with a subsequent check which compares
+        # the actual existing and uploaded JSON contents after having matched indentation (new_content_json == current_content_json)
+        #
         # Compare dictionaries directly to check for identical contents (ignoring formatting and item order)
         if current_content_dict == uploaded_dict:
             upload_warnings.append(
@@ -216,6 +219,7 @@ async def upload(
             body=pr_body,
         )
     except GithubException as e:
+        # TODO: Delete the branch if the commit or PR creation fails?
         return JSONResponse(
             status_code=400,
             content=FailedUpload(
