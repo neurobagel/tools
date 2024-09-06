@@ -4,10 +4,10 @@ import os
 import warnings
 from typing import Annotated, Union
 
-import requests
 from fastapi import APIRouter, Body
 from fastapi.responses import JSONResponse
 from github import Auth, GithubIntegration
+from github.GithubException import GithubException, UnknownObjectException
 
 from .. import utility as utils
 from ..dictionary_utils import validate_data_dict
@@ -19,7 +19,8 @@ from ..models import (
 )
 
 # TODO: Error out when these variables are not set
-GH_PAT = os.environ.get("GH_PAT")
+APP_ID = os.environ.get("NB_BOT_ID")
+APP_PRIVATE_KEY_PATH = os.environ.get("NB_BOT_KEY_PATH")
 
 DATASETS_ORG = "OpenNeuroDatasets-JSONLD"
 
@@ -38,47 +39,54 @@ async def upload(
     contributor: Contributor,
     data_dictionary: Annotated[dict, Body()],
 ):
-    # Construct elements for the GitHub API request
     # TODO: Handle network errors
     gh_repo_url = f"https://github.com/OpenNeuroDatasets-JSONLD/{dataset_id}"
-    repo_url = (
-        f"https://api.github.com/repos/OpenNeuroDatasets-JSONLD/{dataset_id}"
-    )
-    file_url = f"{repo_url}/contents/participants.json"
-    headers = {
-        "Accept": "application/vnd.github+json",
-        "Authorization": "Bearer " + GH_PAT,
-        "X-GitHub-Api-Version": "2022-11-28",
-    }
 
     upload_warnings = []
     file_exists = False
 
+    # Load private key from file to avoid newline issues when a multiline key is set in .env
+    with open(APP_PRIVATE_KEY_PATH, "r") as f:
+        APP_PRIVATE_KEY = f.read()
+
+    # Create a GitHub instance with the appropriate authentication
+    auth = Auth.AppAuth(APP_ID, APP_PRIVATE_KEY)
+    gi = GithubIntegration(auth=auth)
+
+    # Get the installation ID for the Neurobagel Bot app (for the OpenNeuroDatasets-JSONLD organization)
+    installation = gi.get_org_installation(DATASETS_ORG)
+    installation_id = installation.id
+    # TODO: Remove - for debugging
+    print(installation_id)
+
+    g = gi.get_github_for_installation(installation_id)
+
     # Check if the dataset exists
-    response = requests.get(repo_url, headers=headers)
-    # TODO: Should we explicitly handle 301 Moved permanently responses? These would fall under response.ok.
-    if not response.ok:
+    try:
+        repo = g.get_repo(f"{DATASETS_ORG}/{dataset_id}")
+    except UnknownObjectException as e:
+        # TODO: Should we explicitly handle 301 Moved permanently responses? These would not be caught by a 404
         return JSONResponse(
             status_code=400,
             content=FailedUpload(
-                error=f"{response.status_code}: {response.reason}. Please ensure you have provided the correct repository ID."
+                error=f"{e.status}: {e.data['message']}. Please ensure you have provided a correct existing repository ID."
             ).dict(),
         )
 
-    current_file = requests.get(file_url, headers=headers)
-    if current_file.ok:
+    # Get participants.json contents if the file exists
+    try:
+        current_file = repo.get_contents("participants.json")
         file_exists = True
-        current_content_json = base64.b64decode(
-            current_file.json()["content"]
-        ).decode("utf-8")
+        current_content_json = base64.b64decode(current_file.content).decode(
+            "utf-8"
+        )
         current_content_dict = json.loads(current_content_json)
-        current_sha = current_file.json()["sha"]
-    # TODO: Should we be more specific here, i.e., checking for a 404 status code?
-    else:
+    except UnknownObjectException:
         upload_warnings.append(
             "No existing participants.json file found in the repository. A new file will be created."
         )
 
+    # Validate the uploaded data dictionary
     # Catch validation UserWarnings as exceptions so we can store them in the response
     warnings.simplefilter("error", UserWarning)
     try:
@@ -93,7 +101,8 @@ async def upload(
         )
 
     if file_exists:
-        commit_message = "[bot] Update participants.json"
+        change_message_short = "Update participants.json"
+        commit_message = f"[bot] {change_message_short}"
 
         if not utils.only_annotation_changes(
             current_content_dict, data_dictionary
@@ -110,6 +119,7 @@ async def upload(
                 "The (unformatted) dictionary contents of the uploaded JSON file are the same as the existing JSON file."
             )
 
+        # Match indentation
         try:
             current_indent_char, current_indent_level = utils.get_indentation(
                 current_content_json
@@ -140,69 +150,61 @@ async def upload(
                 ).dict(),
             )
     else:
-        commit_message = "[bot] Create participants.json"
+        change_message_short = "Add participants.json"
+        commit_message = f"[bot] {change_message_short}"
         new_content_json = json.dumps(data_dictionary, indent=4)
 
-    # TODO: Error out when these variables are not set
-    APP_ID = os.environ.get("NB_BOT_ID")
-    APP_PRIVATE_KEY_PATH = os.environ.get("NB_BOT_KEY_PATH")
-    # Load private key from file to avoid newline issues when the key is set in .env
-    with open(APP_PRIVATE_KEY_PATH, "r") as f:
-        APP_PRIVATE_KEY = f.read()
-
-    # Create a GitHub instance with the appropriate authentication
-    # auth = Auth.Token(GH_PAT)
-    auth = Auth.AppAuth(APP_ID, APP_PRIVATE_KEY)
-    gi = GithubIntegration(auth=auth)
-    # org = g.get_organization("OpenNeuroDatasets-JSONLD")
-
-    # Get the installation ID for the Neurobagel Bot app (for the OpenNeuroDatasets-JSONLD organization)
-    installation = gi.get_org_installation(DATASETS_ORG)
-    installation_id = installation.id
-    # TODO: Remove - for debugging
-    print(installation_id)
-
-    g = gi.get_github_for_installation(installation_id)
-
     # Create a new branch to commit the data dictionary to
-    repo = g.get_repo(f"{DATASETS_ORG}/{dataset_id}")
     branch_name = utils.create_random_branch_name(contributor.gh_username)
-
     repo.create_git_ref(
         ref=f"refs/heads/{branch_name}", sha=repo.get_branch("main").commit.sha
     )
 
-    # TODO: Commit data dictionary to branch
+    # # To send our data over the network, we need to turn it into
+    # # ascii text by encoding with base64. Base64 takes bytestrings
+    # # as input. So first we encode to bytestring (with utf), then we
+    # # base64 encode, and finally decode from base64 bytestring back
+    # # to plaintext with utf decode.
+    # new_content_b64 = base64.b64encode(
+    #     new_content_json.encode("utf-8")
+    # ).decode("utf-8")
 
-    # TODO: Open PR
+    # Commit uploaded data dictionary to the new branch, and open a PR
+    try:
+        if file_exists:
+            # TODO: Remove - for debugging
+            print(current_file.path)
+            repo.update_file(
+                current_file.path,
+                commit_message,
+                new_content_json,
+                current_file.sha,
+                branch=branch_name,
+            )
+        else:
+            repo.create_file(
+                "participants.json",
+                commit_message,
+                new_content_json,
+                branch=branch_name,
+            )
 
-    # To send our data over the network, we need to turn it into
-    # ascii text by encoding with base64. Base64 takes bytestrings
-    # as input. So first we encode to bytestring (with utf), then we
-    # base64 encode, and finally decode from base64 bytestring back
-    # to plaintext with utf decode.
-    new_content_b64 = base64.b64encode(
-        new_content_json.encode("utf-8")
-    ).decode("utf-8")
-
-    payload = {
-        "message": commit_message,
-        "content": new_content_b64,
-        **{"sha": current_sha if file_exists else {}},
-    }
-
-    # We use json.dumps to ensure the payload is not form-encoded (the GitHub API expects JSON)
-    response = requests.put(
-        file_url, headers=headers, data=json.dumps(payload)
-    )
-
-    if not response.ok:
+        # TODO: Update PR body
+        pr_body = "FILLER"
+        repo.create_pull(
+            base="main",
+            head=branch_name,
+            title=change_message_short,
+            body=pr_body,
+        )
+    except GithubException as e:
         return JSONResponse(
             status_code=400,
             content=FailedUpload(
-                error=f"Something went wrong when updating or creating participants.json in {gh_repo_url}. {response.status_code}: {response.reason}"
+                error=f"Something went wrong when updating or creating participants.json in {gh_repo_url}. {e.status}: {e.data['message']}"
             ).dict(),
         )
+
     if upload_warnings:
         return SuccessfulUploadWithWarnings(
             contents=data_dictionary, warnings=upload_warnings
