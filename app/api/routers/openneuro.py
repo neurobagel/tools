@@ -4,7 +4,7 @@ import os
 import warnings
 from typing import Annotated, Union
 
-from fastapi import APIRouter, Body
+from fastapi import APIRouter, File, Form, UploadFile
 from fastapi.responses import JSONResponse
 from github import Auth, GithubIntegration
 from github.GithubException import GithubException, UnknownObjectException
@@ -12,7 +12,6 @@ from github.GithubException import GithubException, UnknownObjectException
 from .. import utility as utils
 from ..dictionary_utils import validate_data_dict
 from ..models import (
-    Contributor,
     FailedUpload,
     SuccessfulUpload,
     SuccessfulUploadWithWarnings,
@@ -36,8 +35,13 @@ router = APIRouter(prefix="/openneuro", tags=["openneuro"])
 )
 async def upload(
     dataset_id: str,
-    contributor: Contributor,
-    data_dictionary: Annotated[dict, Body()],
+    data_dictionary: Annotated[UploadFile, File()],
+    changes_summary: Annotated[str, Form()],
+    name: Annotated[str, Form()],
+    email: Annotated[str, Form()],
+    # TODO: Should be required?
+    affiliation: Annotated[str | None, Form()] = None,
+    gh_username: Annotated[str | None, Form()] = None,
 ):
     # TODO: Handle network errors
     gh_repo_url = f"https://github.com/OpenNeuroDatasets-JSONLD/{dataset_id}"
@@ -48,6 +52,17 @@ async def upload(
     # Load private key from file to avoid newline issues when a multiline key is set in .env
     with open(APP_PRIVATE_KEY_PATH, "r") as f:
         APP_PRIVATE_KEY = f.read()
+
+    uploaded_file_contents = await data_dictionary.read()
+    try:
+        uploaded_dict = json.loads(uploaded_file_contents)
+    except json.JSONDecodeError:
+        return JSONResponse(
+            status_code=400,
+            content=FailedUpload(
+                error="The uploaded file is not a valid JSON file."
+            ).dict(),
+        )
 
     # Create a GitHub instance with the appropriate authentication
     auth = Auth.AppAuth(APP_ID, APP_PRIVATE_KEY)
@@ -73,6 +88,9 @@ async def upload(
             ).dict(),
         )
 
+    # Needed because some repos in OpenNeuroDatasets-JSONLD have "main" default, others have "master"
+    default_branch = repo.default_branch
+
     # Get participants.json contents if the file exists
     try:
         current_file = repo.get_contents("participants.json")
@@ -90,7 +108,7 @@ async def upload(
     # Catch validation UserWarnings as exceptions so we can store them in the response
     warnings.simplefilter("error", UserWarning)
     try:
-        validate_data_dict(data_dictionary)
+        validate_data_dict(uploaded_dict)
     except UserWarning as w:
         upload_warnings.append(str(w))
     except (LookupError, ValueError) as e:
@@ -105,7 +123,7 @@ async def upload(
         commit_message = f"[bot] {change_message_short}"
 
         if not utils.only_annotation_changes(
-            current_content_dict, data_dictionary
+            current_content_dict, uploaded_dict
         ):
             upload_warnings.append(
                 "The uploaded data dictionary may contain changes that are not related to Neurobagel annotations."
@@ -114,7 +132,7 @@ async def upload(
                 "\n- includes changes unrelated to Neurobagel annotations"
             )
         # Compare dictionaries directly to check for identical contents (ignoring formatting and item order)
-        if current_content_dict == data_dictionary:
+        if current_content_dict == uploaded_dict:
             upload_warnings.append(
                 "The (unformatted) dictionary contents of the uploaded JSON file are the same as the existing JSON file."
             )
@@ -128,7 +146,7 @@ async def upload(
                 current_content_json
             )
             new_content_json = utils.dict_to_formatted_json(
-                data_dict=data_dictionary,
+                data_dict=uploaded_dict,
                 indent_char=current_indent_char,
                 indent_num=current_indent_level,
                 newline_char=current_newline_char,
@@ -146,18 +164,19 @@ async def upload(
             return JSONResponse(
                 status_code=400,
                 content=FailedUpload(
-                    error="The content selected for upload is the same in as the target file."
+                    error="The content selected for upload is the same as in the target file."
                 ).dict(),
             )
     else:
         change_message_short = "Add participants.json"
         commit_message = f"[bot] {change_message_short}"
-        new_content_json = json.dumps(data_dictionary, indent=4)
+        new_content_json = json.dumps(uploaded_dict, indent=4)
 
     # Create a new branch to commit the data dictionary to
-    branch_name = utils.create_random_branch_name(contributor.gh_username)
+    branch_name = utils.create_random_branch_name(gh_username)
     repo.create_git_ref(
-        ref=f"refs/heads/{branch_name}", sha=repo.get_branch("main").commit.sha
+        ref=f"refs/heads/{branch_name}",
+        sha=repo.get_branch(default_branch).commit.sha,
     )
 
     # # To send our data over the network, we need to turn it into
@@ -172,8 +191,6 @@ async def upload(
     # Commit uploaded data dictionary to the new branch, and open a PR
     try:
         if file_exists:
-            # TODO: Remove - for debugging
-            print(current_file.path)
             repo.update_file(
                 current_file.path,
                 commit_message,
@@ -192,7 +209,7 @@ async def upload(
         # TODO: Update PR body
         pr_body = "FILLER"
         repo.create_pull(
-            base="main",
+            base=default_branch,
             head=branch_name,
             title=change_message_short,
             body=pr_body,
@@ -207,6 +224,6 @@ async def upload(
 
     if upload_warnings:
         return SuccessfulUploadWithWarnings(
-            contents=data_dictionary, warnings=upload_warnings
+            contents=uploaded_dict, warnings=upload_warnings
         )
-    return SuccessfulUpload(contents=data_dictionary)
+    return SuccessfulUpload(contents=uploaded_dict)
