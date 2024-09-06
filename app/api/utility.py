@@ -31,21 +31,30 @@ def create_commit_message(contributor: Contributor, commit_body: str) -> str:
     )
 
 
+def convert_literal_newlines(input_str: str) -> str:
+    """
+    Convert literal newline characters in a string to a normal newline.
+
+    This is useful because form fields received by FastAPI are treated as plain text, meaning that any \n
+    characters in the form data are not automatically interpreted will be treated as literal characters.
+    """
+    return input_str.replace("\\n", "\n")
+
+
 def create_pull_request_body(
     contributor: Contributor, commit_body: str
 ) -> str:
     """
     Generate a body for the pull request based on the auto-generated main commit message and details provided by the contributor.
     """
-    # TODO: Ensure that changes summary can handle newlines
     return (
-        "Bot-generated change overview:\n"
+        "### Overview of proposed changes (bot-generated):\n"
         + f"{commit_body}\n\n"
-        + "Changes proposed in this pull request:\n"
+        + "### More details:\n"
         + f"{contributor.changes_summary}\n\n"
-        + "Changes proposed by:\n"
+        + "### Changes proposed by:\n"
         + f"Name: {contributor.name} "
-        + (f"({contributor.gh_username})" if contributor.gh_username else "")
+        + (f"(@{contributor.gh_username})" if contributor.gh_username else "")
         + "\n"
         + f"Affiliation: {contributor.affiliation}\n"
     )

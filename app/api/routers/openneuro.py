@@ -39,8 +39,8 @@ async def upload(
     changes_summary: Annotated[str, Form()],
     name: Annotated[str, Form()],
     email: Annotated[str, Form()],
-    # TODO: Should be required?
     affiliation: Annotated[str | None, Form()] = None,
+    # TODO: Do we need to check that it doesn't already start with a "@"? Or should we let the UI handle that?
     gh_username: Annotated[str | None, Form()] = None,
 ):
     # TODO: Switch to using this Pydantic model directly for the /upload route form data once we
@@ -51,7 +51,7 @@ async def upload(
         email=email,
         affiliation=affiliation,
         gh_username=gh_username,
-        changes_summary=changes_summary,
+        changes_summary=utils.convert_literal_newlines(changes_summary),
     )
 
     # TODO: Handle network errors
