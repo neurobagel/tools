@@ -74,6 +74,7 @@ async def upload(
         )
 
     # Create a GitHub instance with the appropriate authentication
+    # (See https://pygithub.readthedocs.io/en/stable/examples/Authentication.html#app-installation-authentication)
     auth = Auth.AppAuth(APP_ID, APP_PRIVATE_KEY)
     gi = GithubIntegration(auth=auth)
 
