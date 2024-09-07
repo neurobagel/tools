@@ -56,10 +56,13 @@ def create_pull_request_body(
         + "### More details:\n"
         + f"{contributor.changes_summary}\n\n"
         + "### Changes proposed by:\n"
-        + f"Name: {contributor.name} "
-        + (f"(@{contributor.gh_username})" if contributor.gh_username else "")
-        + "\n"
-        + f"Affiliation: {contributor.affiliation}\n"
+        + f"Name: {contributor.name}"
+        + (
+            f" (@{contributor.gh_username})\n"
+            if contributor.gh_username
+            else "\n"
+        )
+        + f"Affiliation: {contributor.affiliation}"
     )
 
 

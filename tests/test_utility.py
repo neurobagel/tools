@@ -1,6 +1,7 @@
 import pytest
 
 from app.api import utility as utils
+from app.api.models import Contributor
 
 
 @pytest.mark.parametrize(
@@ -158,3 +159,68 @@ def test_only_annotation_changes(example_new_dict):
         )
         is False
     )
+
+
+@pytest.mark.parametrize(
+    "gh_username, expected_prefix",
+    [("testuser", "testuser/update-"), (None, "update-")],
+)
+def test_create_random_branch_name(gh_username, expected_prefix):
+    branch_name = utils.create_random_branch_name(gh_username)
+    assert branch_name.startswith(expected_prefix)
+
+
+def test_create_commit_message():
+    test_contributor = Contributor(
+        name="Test User",
+        email="testuser@gmail.com",
+        changes_summary="Test changes",
+    )
+    assert (
+        utils.create_commit_message(test_contributor, "Add participants.json")
+        == "[bot] Add participants.json\n\nCo-authored-by: Test User <testuser@gmail.com>"
+    )
+
+
+@pytest.mark.parametrize(
+    "input_str, expected_output",
+    [
+        ("added annotations for:\\n- age", "added annotations for:\n- age"),
+        ("added annotations for age", "added annotations for age"),
+    ],
+)
+def convert_literal_newlines(input_str, expected_output):
+    assert utils.convert_literal_newlines(input_str) == expected_output
+
+
+@pytest.mark.parametrize(
+    "name, gh_username, affiliation, expected_name_in_pr",
+    [
+        ("John Doe", "johndoe", "Test University", "John Doe (@johndoe)"),
+        ("Jane Doe", None, None, "Jane Doe"),
+    ],
+)
+def test_create_pull_request_body(
+    name, gh_username, affiliation, expected_name_in_pr
+):
+    test_contributor = Contributor(
+        name=name,
+        email="user@gmail.com",
+        changes_summary="A more detailed change",
+        gh_username=gh_username,
+        affiliation=affiliation,
+    )
+    pr_body = utils.create_pull_request_body(
+        test_contributor, "Update participants.json"
+    )
+    expected_pr_body = f"""### Overview of proposed changes (bot-generated):
+Update participants.json
+
+### More details:
+A more detailed change
+
+### Changes proposed by:
+Name: {expected_name_in_pr}
+Affiliation: {affiliation}"""
+
+    assert pr_body == expected_pr_body
