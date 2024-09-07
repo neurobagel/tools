@@ -35,8 +35,11 @@ def convert_literal_newlines(input_str: str) -> str:
     """
     Convert literal newline characters in a string to a normal newline.
 
-    This is useful because form fields received by FastAPI are treated as plain text, meaning that any \n
-    characters in the form data are not automatically interpreted will be treated as literal characters.
+    This is useful because form fields received by FastAPI are treated as raw text, meaning that any \n
+    characters in the form data are not automatically interpreted and are treated as literal characters.
+
+    For example, this happens if a curl request contains `-F 'changes_summary=added annotations for:\n -age'` instead of
+    `-F $'changes_summary=added annotations for:\n -age'`.
     """
     return input_str.replace("\\n", "\n")
 
