@@ -1,0 +1,14 @@
+services:
+
+  openneuro_upload_api:
+    image: neurobagel/openneuro_upload:latest
+    ports:
+      - "${HOST_UPLOADER_API_PORT:-8000}:8000"
+    volumes:
+      # When running the service as a Docker container, user can provide a custom private key path to be mounted
+      # Note: Having the private key in a separate file vs. an environment variable avoids issues with newlines in the key and minimizes exposure
+      - "${HOST_NB_BOT_KEY_PATH:-./private_key.pem}:/etc/keys/private_key.pem:ro"
+    environment:
+      NB_BOT_ID: "${NB_BOT_ID}"
+      # This variable used by the app can be overridden if needed during development
+      NB_BOT_KEY_PATH: "/etc/keys/private_key.pem"

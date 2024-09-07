@@ -41,3 +41,8 @@ repos:
     rev: v2.2.6
     hooks:
       - id: codespell
+
+  - repo: https://github.com/iamthefij/docker-pre-commit
+    rev: v3.0.1
+    hooks:
+      - id: docker-compose-check
