@@ -92,7 +92,7 @@ async def upload(
         return JSONResponse(
             status_code=400,
             content=FailedUpload(
-                error=f"{e.status}: {e.data['message']}. Please ensure you have provided a correct existing repository ID."
+                error=f"{e.status}: {e.data['message']}. Please ensure you have provided a correct existing dataset ID."
             ).dict(),
         )
 
