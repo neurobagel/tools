@@ -12,10 +12,10 @@ def create_random_branch_name(gh_username: str | None = None) -> str:
     '<username>/update-xxxxxx' if a GitHub username is provided.
     """
     # Define the allowed characters for a branch name
-    characters = string.ascii_lowercase + string.digits
+    allowed_characters = string.ascii_lowercase + string.digits
     # Generate a random string of the specified length
     branch_name = "update-" + "".join(
-        random.choice(characters) for _ in range(6)
+        random.choice(allowed_characters) for _ in range(6)
     )
     if gh_username:
         branch_name = f"{gh_username}/{branch_name}"
