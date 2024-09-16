@@ -1,105 +1,113 @@
 import base64
 import json
-import os
-import secrets
 import warnings
 from typing import Annotated, Union
 
-import requests
-from fastapi import APIRouter, Body, Depends, HTTPException, status
+from fastapi import APIRouter, File, Form, UploadFile
 from fastapi.responses import JSONResponse
-from fastapi.security import HTTPBasic, HTTPBasicCredentials
+from github import Auth, GithubIntegration
+from github.GithubException import GithubException, UnknownObjectException
 
 from .. import utility as utils
 from ..dictionary_utils import validate_data_dict
 from ..models import (
+    Contributor,
     FailedUpload,
     SuccessfulUpload,
     SuccessfulUploadWithWarnings,
 )
 
-# TODO: Error out when these variables are not set
-GH_PAT = os.environ.get("GH_PAT")
-API_USERNAME = bytes(os.environ.get("API_USERNAME"), encoding="utf-8")
-API_PASSWORD = bytes(os.environ.get("API_PASSWORD"), encoding="utf-8")
+DATASETS_ORG = "OpenNeuroDatasets-JSONLD"
 
 router = APIRouter(prefix="/openneuro", tags=["openneuro"])
 
-security = HTTPBasic()
-
-
-def verify_credentials(credentials: HTTPBasicCredentials = Depends(security)):
-    """Check if the provided credentials are valid. If not, raise an HTTPException."""
-    current_username_bytes = credentials.username.encode("utf-8")
-    is_correct_username = secrets.compare_digest(
-        current_username_bytes, API_USERNAME
-    )
-
-    current_password_bytes = credentials.password.encode("utf-8")
-    is_correct_password = secrets.compare_digest(
-        current_password_bytes, API_PASSWORD
-    )
-
-    if not (is_correct_username and is_correct_password):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password",
-            headers={"WWW-Authenticate": "Basic"},
-        )
-
 
 # TODO: Factor out main logic into a CRUD function for easier mocking in tests
-# For context on how we use dependencies here, see https://fastapi.tiangolo.com/tutorial/dependencies/dependencies-in-path-operation-decorators/
 @router.put(
     "/upload",
     response_model=Union[SuccessfulUpload, SuccessfulUploadWithWarnings],
     responses={400: {"model": FailedUpload}},
-    dependencies=[Depends(verify_credentials)],
 )
-async def upload(dataset_id: str, data_dictionary: Annotated[dict, Body()]):
-    # TODO: Handle network errors
-    gh_repo_url = f"https://github.com/OpenNeuroDatasets-JSONLD/{dataset_id}"
-    repo_url = (
-        f"https://api.github.com/repos/OpenNeuroDatasets-JSONLD/{dataset_id}"
+async def upload(
+    dataset_id: str,
+    data_dictionary: Annotated[UploadFile, File()],
+    changes_summary: Annotated[str, Form()],
+    name: Annotated[str, Form()],
+    email: Annotated[str, Form()],
+    affiliation: Annotated[str | None, Form()] = None,
+    # TODO: Do we need to check that it doesn't already start with a "@"? Or should we let the UI handle that?
+    gh_username: Annotated[str | None, Form()] = None,
+):
+    # TODO: Switch to using this Pydantic model directly for the /upload route form data once we
+    # upgrade the FastAPI version to >= 0.113.0 (and ensure that Pydantic v1 can still be used)
+    # See https://fastapi.tiangolo.com/tutorial/request-form-models/
+    contributor = Contributor(
+        name=name,
+        email=email,
+        affiliation=affiliation,
+        gh_username=gh_username,
+        changes_summary=utils.convert_literal_newlines(changes_summary),
     )
-    file_url = f"{repo_url}/contents/participants.json"
-    headers = {
-        "Accept": "application/vnd.github+json",
-        "Authorization": "Bearer " + GH_PAT,
-        "X-GitHub-Api-Version": "2022-11-28",
-    }
 
+    # TODO: Handle network errors
     upload_warnings = []
     file_exists = False
 
-    response = requests.get(repo_url, headers=headers)
-    # TODO: Should we explicitly handle 301 Moved permanently responses? These would fall under response.ok.
-    if not response.ok:
+    uploaded_file_contents = await data_dictionary.read()
+    try:
+        uploaded_dict = json.loads(uploaded_file_contents)
+    except json.JSONDecodeError:
         return JSONResponse(
             status_code=400,
             content=FailedUpload(
-                error=f"{response.status_code}: {response.reason}. Please ensure you have provided the correct repository ID."
+                error="The uploaded file is not a valid JSON file."
             ).dict(),
         )
 
-    current_file = requests.get(file_url, headers=headers)
-    if current_file.ok:
+    # Create a GitHub instance with the appropriate authentication
+    # (See https://pygithub.readthedocs.io/en/stable/examples/Authentication.html#app-installation-authentication)
+    auth = Auth.AppAuth(utils.APP_ID, utils.APP_PRIVATE_KEY)
+    gi = GithubIntegration(auth=auth)
+
+    # Get the installation ID for the Neurobagel Bot app (for the OpenNeuroDatasets-JSONLD organization)
+    installation = gi.get_org_installation(DATASETS_ORG)
+    installation_id = installation.id
+
+    g = gi.get_github_for_installation(installation_id)
+
+    # Check if the dataset exists
+    try:
+        repo = g.get_repo(f"{DATASETS_ORG}/{dataset_id}")
+    except UnknownObjectException as e:
+        # TODO: Should we explicitly handle 301 Moved permanently responses? These would not be caught by a 404
+        return JSONResponse(
+            status_code=400,
+            content=FailedUpload(
+                error=f"{e.status}: {e.data['message']}. Please ensure you have provided a correct existing dataset ID."
+            ).dict(),
+        )
+
+    # Needed because some repos in OpenNeuroDatasets-JSONLD have "main" default, others have "master"
+    default_branch = repo.default_branch
+
+    # Get participants.json contents if the file exists
+    try:
+        current_file = repo.get_contents("participants.json")
         file_exists = True
-        current_content_json = base64.b64decode(
-            current_file.json()["content"]
-        ).decode("utf-8")
+        current_content_json = base64.b64decode(current_file.content).decode(
+            "utf-8"
+        )
         current_content_dict = json.loads(current_content_json)
-        current_sha = current_file.json()["sha"]
-    # TODO: Should we be more specific here, i.e., checking for a 404 status code?
-    else:
+    except UnknownObjectException:
         upload_warnings.append(
             "No existing participants.json file found in the repository. A new file will be created."
         )
 
+    # Validate the uploaded data dictionary
     # Catch validation UserWarnings as exceptions so we can store them in the response
     warnings.simplefilter("error", UserWarning)
     try:
-        validate_data_dict(data_dictionary)
+        validate_data_dict(uploaded_dict)
     except UserWarning as w:
         upload_warnings.append(str(w))
     except (LookupError, ValueError) as e:
@@ -110,23 +118,27 @@ async def upload(dataset_id: str, data_dictionary: Annotated[dict, Body()]):
         )
 
     if file_exists:
-        commit_message = "[bot] Update participants.json"
+        commit_body = "Update participants.json"
 
         if not utils.only_annotation_changes(
-            current_content_dict, data_dictionary
+            current_content_dict, uploaded_dict
         ):
             upload_warnings.append(
                 "The uploaded data dictionary may contain changes that are not related to Neurobagel annotations."
             )
-            commit_message += (
+            commit_body += (
                 "\n- includes changes unrelated to Neurobagel annotations"
             )
+        # TODO: See if we actually need this check - it seems redundant with a subsequent check which compares
+        # the actual existing and uploaded JSON contents after having matched indentation (new_content_json == current_content_json)
+        #
         # Compare dictionaries directly to check for identical contents (ignoring formatting and item order)
-        if current_content_dict == data_dictionary:
+        if current_content_dict == uploaded_dict:
             upload_warnings.append(
                 "The (unformatted) dictionary contents of the uploaded JSON file are the same as the existing JSON file."
             )
 
+        # Match indentation
         try:
             current_indent_char, current_indent_level = utils.get_indentation(
                 current_content_json
@@ -135,7 +147,7 @@ async def upload(dataset_id: str, data_dictionary: Annotated[dict, Body()]):
                 current_content_json
             )
             new_content_json = utils.dict_to_formatted_json(
-                data_dict=data_dictionary,
+                data_dict=uploaded_dict,
                 indent_char=current_indent_char,
                 indent_num=current_indent_level,
                 newline_char=current_newline_char,
@@ -153,42 +165,62 @@ async def upload(dataset_id: str, data_dictionary: Annotated[dict, Body()]):
             return JSONResponse(
                 status_code=400,
                 content=FailedUpload(
-                    error="The content selected for upload is the same in as the target file."
+                    error="The content selected for upload is the same as in the target file."
                 ).dict(),
             )
     else:
-        commit_message = "[bot] Create participants.json"
-        new_content_json = json.dumps(data_dictionary, indent=4)
+        commit_body = "Add participants.json"
+        new_content_json = json.dumps(uploaded_dict, indent=4)
 
-    # To send our data over the network, we need to turn it into
-    # ascii text by encoding with base64. Base64 takes bytestrings
-    # as input. So first we encode to bytestring (with utf), then we
-    # base64 encode, and finally decode from base64 bytestring back
-    # to plaintext with utf decode.
-    new_content_b64 = base64.b64encode(
-        new_content_json.encode("utf-8")
-    ).decode("utf-8")
-
-    payload = {
-        "message": commit_message,
-        "content": new_content_b64,
-        **{"sha": current_sha if file_exists else {}},
-    }
-
-    # We use json.dumps to ensure the payload is not form-encoded (the GitHub API expects JSON)
-    response = requests.put(
-        file_url, headers=headers, data=json.dumps(payload)
+    # Create a new branch to commit the data dictionary to
+    branch_name = utils.create_random_branch_name(contributor.gh_username)
+    repo.create_git_ref(
+        ref=f"refs/heads/{branch_name}",
+        sha=repo.get_branch(default_branch).commit.sha,
     )
 
-    if not response.ok:
+    # Commit uploaded data dictionary to the new branch, and open a PR
+    commit_message = utils.create_commit_message(
+        contributor=contributor, commit_body=commit_body
+    )
+    try:
+        if file_exists:
+            repo.update_file(
+                current_file.path,
+                commit_message,
+                new_content_json,
+                current_file.sha,
+                branch=branch_name,
+            )
+        else:
+            repo.create_file(
+                "participants.json",
+                commit_message,
+                new_content_json,
+                branch=branch_name,
+            )
+
+        pr_body = utils.create_pull_request_body(
+            contributor=contributor, commit_body=commit_body
+        )
+        pr = repo.create_pull(
+            base=default_branch,
+            head=branch_name,
+            # Get the first line of the commit body as the PR title
+            title=commit_body.splitlines()[0],
+            body=pr_body,
+        )
+    except GithubException as e:
+        # TODO: Delete the branch if the commit or PR creation fails?
         return JSONResponse(
             status_code=400,
             content=FailedUpload(
-                error=f"Something went wrong when updating or creating participants.json in {gh_repo_url}. {response.status_code}: {response.reason}"
+                error=f"Something went wrong when updating or creating participants.json in {repo.html_url}. {e.status}: {e.data['message']}"
             ).dict(),
         )
+
     if upload_warnings:
         return SuccessfulUploadWithWarnings(
-            contents=data_dictionary, warnings=upload_warnings
+            pull_request_url=pr.html_url, warnings=upload_warnings
         )
-    return SuccessfulUpload(contents=data_dictionary)
+    return SuccessfulUpload(pull_request_url=pr.html_url)

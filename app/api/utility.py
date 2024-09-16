@@ -1,5 +1,84 @@
 import json
+import os
+import random
+import string
 from typing import Union
+
+from .models import Contributor
+
+# TODO: Error out when these variables are not set?
+APP_ID = os.environ.get("NB_BOT_ID")
+APP_PRIVATE_KEY_PATH = os.environ.get("NB_BOT_KEY_PATH")
+
+APP_PRIVATE_KEY = None
+
+
+def set_gh_credentials():
+    """Read the private key for the GitHub app to authenticate as from a file and set it as a global variable."""
+    global APP_PRIVATE_KEY
+    # Load private key from file to avoid newline issues when a multiline key is set in .env
+    with open(APP_PRIVATE_KEY_PATH, "r") as f:
+        APP_PRIVATE_KEY = f.read()
+
+
+def create_random_branch_name(gh_username: str | None = None) -> str:
+    """
+    Generate a random branch name for a pull request in the format 'update-xxxxxx', or optionally,
+    '<username>/update-xxxxxx' if a GitHub username is provided.
+    """
+    # Define the allowed characters for a branch name
+    allowed_characters = string.ascii_lowercase + string.digits
+    # Generate a random string of the specified length
+    branch_name = "update-" + "".join(
+        random.choice(allowed_characters) for _ in range(6)
+    )
+    if gh_username:
+        branch_name = f"{gh_username}/{branch_name}"
+
+    return branch_name
+
+
+def create_commit_message(contributor: Contributor, commit_body: str) -> str:
+    """Generate a commit message based on the auto-generated main commit body and available contributor info."""
+    return (
+        f"[bot] {commit_body}\n\n"
+        + f"Co-authored-by: {contributor.name} <{contributor.email}>"
+    )
+
+
+def convert_literal_newlines(input_str: str) -> str:
+    """
+    Convert literal newline characters in a string to a normal newline.
+
+    This is useful because form fields received by FastAPI are treated as raw text, meaning that any \n
+    characters in the form data are not automatically interpreted and are treated as literal characters.
+
+    For example, this happens if a curl request contains `-F 'changes_summary=added annotations for:\n -age'` instead of
+    `-F $'changes_summary=added annotations for:\n -age'`.
+    """
+    return input_str.replace("\\n", "\n")
+
+
+def create_pull_request_body(
+    contributor: Contributor, commit_body: str
+) -> str:
+    """
+    Generate a body for the pull request based on the auto-generated main commit message and details provided by the contributor.
+    """
+    return (
+        "### Overview of proposed changes (bot-generated):\n"
+        + f"{commit_body}\n\n"
+        + "### More details:\n"
+        + f"{contributor.changes_summary}\n\n"
+        + "### Changes proposed by:\n"
+        + f"Name: {contributor.name}"
+        + (
+            f" (@{contributor.gh_username})\n"
+            if contributor.gh_username
+            else "\n"
+        )
+        + f"Affiliation: {contributor.affiliation}"
+    )
 
 
 def extract_non_annotations(data_dict: dict) -> dict:
