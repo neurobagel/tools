@@ -1,6 +1,5 @@
 import base64
 import json
-import os
 import warnings
 from typing import Annotated, Union
 
@@ -17,10 +16,6 @@ from ..models import (
     SuccessfulUpload,
     SuccessfulUploadWithWarnings,
 )
-
-# TODO: Error out when these variables are not set?
-APP_ID = os.environ.get("NB_BOT_ID")
-APP_PRIVATE_KEY_PATH = os.environ.get("NB_BOT_KEY_PATH")
 
 DATASETS_ORG = "OpenNeuroDatasets-JSONLD"
 
@@ -58,10 +53,6 @@ async def upload(
     upload_warnings = []
     file_exists = False
 
-    # Load private key from file to avoid newline issues when a multiline key is set in .env
-    with open(APP_PRIVATE_KEY_PATH, "r") as f:
-        APP_PRIVATE_KEY = f.read()
-
     uploaded_file_contents = await data_dictionary.read()
     try:
         uploaded_dict = json.loads(uploaded_file_contents)
@@ -75,7 +66,7 @@ async def upload(
 
     # Create a GitHub instance with the appropriate authentication
     # (See https://pygithub.readthedocs.io/en/stable/examples/Authentication.html#app-installation-authentication)
-    auth = Auth.AppAuth(APP_ID, APP_PRIVATE_KEY)
+    auth = Auth.AppAuth(utils.APP_ID, utils.APP_PRIVATE_KEY)
     gi = GithubIntegration(auth=auth)
 
     # Get the installation ID for the Neurobagel Bot app (for the OpenNeuroDatasets-JSONLD organization)

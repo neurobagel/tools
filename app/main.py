@@ -1,11 +1,23 @@
+from contextlib import asynccontextmanager
+
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import ORJSONResponse
 
+from app.api.utility import set_gh_credentials
+
 from .api.routers import openneuro
 
-app = FastAPI(default_response_class=ORJSONResponse)
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Ensure info needed for GitHub authentication is read in before the FastAPI app starts up."""
+    set_gh_credentials()
+    yield
+
+
+app = FastAPI(default_response_class=ORJSONResponse, lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,

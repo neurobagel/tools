@@ -1,9 +1,24 @@
 import json
+import os
 import random
 import string
 from typing import Union
 
 from .models import Contributor
+
+# TODO: Error out when these variables are not set?
+APP_ID = os.environ.get("NB_BOT_ID")
+APP_PRIVATE_KEY_PATH = os.environ.get("NB_BOT_KEY_PATH")
+
+APP_PRIVATE_KEY = None
+
+
+def set_gh_credentials():
+    """Read the private key for the GitHub app to authenticate as from a file and set it as a global variable."""
+    global APP_PRIVATE_KEY
+    # Load private key from file to avoid newline issues when a multiline key is set in .env
+    with open(APP_PRIVATE_KEY_PATH, "r") as f:
+        APP_PRIVATE_KEY = f.read()
 
 
 def create_random_branch_name(gh_username: str | None = None) -> str:
