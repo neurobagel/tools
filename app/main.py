@@ -3,11 +3,14 @@ from contextlib import asynccontextmanager
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import ORJSONResponse
+from fastapi.openapi.docs import get_redoc_html, get_swagger_ui_html
+from fastapi.responses import HTMLResponse, ORJSONResponse, RedirectResponse
 
 from app.api.utility import set_gh_credentials
 
 from .api.routers import openneuro
+
+FAVICON_URL = "https://raw.githubusercontent.com/neurobagel/documentation/main/docs/imgs/logo/neurobagel_favicon.png"
 
 
 @asynccontextmanager
@@ -17,7 +20,13 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(default_response_class=ORJSONResponse, lifespan=lifespan)
+app = FastAPI(
+    default_response_class=ORJSONResponse,
+    lifespan=lifespan,
+    # We will override the default docs with our own endpoints with a custom favicon
+    docs_url=None,
+    redoc_url=None,
+)
 
 app.add_middleware(
     CORSMiddleware,
@@ -26,6 +35,55 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# TODO: Should we exclude the root endpoint from the schema for a cleaner docs?
+@app.get("/", response_class=HTMLResponse)
+def root():
+    """
+    Display a welcome message and a link to the API documentation.
+    """
+    return """
+    <html>
+        <body>
+            <h1>Welcome to the API for <a href="https://github.com/OpenNeuroDatasets-JSONLD" target="_blank">Neurobagel-annotated OpenNeuro Datasets!</a></h1>
+            <p>Please visit the <a href="/docs">documentation</a> to view available API endpoints.</p>
+        </body>
+    </html>
+    """
+
+
+@app.get("/favicon.ico", include_in_schema=False)
+async def favicon():
+    """
+    Overrides the default favicon with a custom one.
+    """
+    return RedirectResponse(url=FAVICON_URL)
+
+
+@app.get("/docs", include_in_schema=False)
+def overridden_swagger():
+    """
+    Overrides the Swagger UI HTML for the "/docs" endpoint.
+    """
+    return get_swagger_ui_html(
+        openapi_url="/openapi.json",
+        title="Neurobagel OpenNeuro Datasets API",
+        swagger_favicon_url=FAVICON_URL,
+    )
+
+
+@app.get("/redoc", include_in_schema=False)
+def overridden_redoc():
+    """
+    Overrides the Redoc HTML for the "/redoc" endpoint.
+    """
+    return get_redoc_html(
+        openapi_url="/openapi.json",
+        title="Neurobagel OpenNeuro Datasets API",
+        redoc_favicon_url=FAVICON_URL,
+    )
+
 
 app.include_router(openneuro.router)
 
