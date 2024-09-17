@@ -23,6 +23,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     default_response_class=ORJSONResponse,
     lifespan=lifespan,
+    # We will override the default docs with our own endpoints with a custom favicon
     docs_url=None,
     redoc_url=None,
 )
