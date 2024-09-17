@@ -1,3 +1,15 @@
+# v0.1.1 (Tue Sep 17 2024)
+
+#### 🚀 Enhancements
+
+- [ENH] Add favicon and welcome message at root endpoint [#27](https://github.com/neurobagel/tools/pull/27) ([@alyssadai](https://github.com/alyssadai))
+
+#### Authors: 1
+
+- Alyssa Dai ([@alyssadai](https://github.com/alyssadai))
+
+---
+
 # v0.1.0 (Mon Sep 16 2024)
 
 :tada: This release contains work from new contributors! :tada:
