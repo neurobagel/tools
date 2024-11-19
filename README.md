@@ -1,3 +1,7 @@
+[![codecov](https://codecov.io/gh/neurobagel/tools/graph/badge.svg?token=3E2e6vNiih)](https://codecov.io/gh/neurobagel/tools)
+[![License](https://img.shields.io/github/license/neurobagel/tools?color=CD5C5C&style=flat)](LICENSE)
+[![Python versions](https://img.shields.io/badge/Python-3.10%20%7C%203.11-blue?style=flat)](https://www.python.org)
+
 # tools
 Other helpful tools for interfacing with Neurobagel
 
