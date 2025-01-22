@@ -53,5 +53,5 @@ tomli==2.0.1
 typing_extensions==4.4.0
 urllib3==2.2.1
 uvicorn==0.20.0
-virtualenv==20.16.7
+virtualenv==20.26.6
 wrapt==1.16.0
