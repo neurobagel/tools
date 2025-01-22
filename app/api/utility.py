@@ -6,6 +6,7 @@ from typing import Union
 
 from .models import Contributor
 
+ROOT_PATH = os.environ.get("NB_UPLOADER_API_ROOT_PATH", "")
 # TODO: Error out when these variables are not set?
 APP_ID = os.environ.get("NB_BOT_ID")
 APP_PRIVATE_KEY_PATH = os.environ.get("NB_BOT_KEY_PATH")
