@@ -48,7 +48,7 @@ def root(request: Request):
     <html>
         <body>
             <h1>Welcome to the API for <a href="https://github.com/OpenNeuroDatasets-JSONLD" target="_blank">Neurobagel-annotated OpenNeuro Datasets!</a></h1>
-            <p>Please visit the <a href="{request.scope.get("root_path", "")}/docs">documentation</a> to view available API endpoints.</p>
+            <p>Please visit the <a href="{request.scope.get("root_path", "")}/docs">API documentation</a> to view available API endpoints.</p>
         </body>
     </html>
     """
