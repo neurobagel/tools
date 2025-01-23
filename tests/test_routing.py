@@ -64,7 +64,7 @@ def test_docs_when_root_path_includes_trailing_slash(
     This provides a sanity check that the app does not ignore/redirect trailing slashes in the root_path when requests are received.
     """
 
-    monkeypatch.setattr(app, "root_path", "/upload")
+    monkeypatch.setattr(app, "root_path", "/upload/")
     docs_response = test_app.get(f"{test_path}/docs", follow_redirects=False)
     schema_response = test_app.get(
         f"{test_path}/openapi.json", follow_redirects=False
