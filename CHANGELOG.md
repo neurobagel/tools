@@ -1,3 +1,20 @@
+# v0.1.2 (Sat Feb 01 2025)
+
+#### 🚀 Enhancements
+
+- [ENH] Make root path for app configurable [#45](https://github.com/neurobagel/tools/pull/45) ([@alyssadai](https://github.com/alyssadai))
+
+#### 🏠 Internal
+
+- [MNT] Removed build docker nightly workflow file [#28](https://github.com/neurobagel/tools/pull/28) ([@rmanaem](https://github.com/rmanaem))
+
+#### Authors: 2
+
+- Alyssa Dai ([@alyssadai](https://github.com/alyssadai))
+- Arman Jahanpour ([@rmanaem](https://github.com/rmanaem))
+
+---
+
 # v0.1.1 (Tue Sep 17 2024)
 
 #### 🚀 Enhancements
