@@ -35,11 +35,9 @@ async def upload(
     name: Annotated[str, Form()],
     email: Annotated[str, Form()],
     affiliation: Annotated[str | None, Form()] = None,
-    # TODO: Do we need to check that it doesn't already start with a "@"? Or should we let the UI handle that?
     gh_username: Annotated[str | None, Form()] = None,
 ):
-    # TODO: Switch to using this Pydantic model directly for the /upload route form data once we
-    # upgrade the FastAPI version to >= 0.113.0 (and ensure that Pydantic v1 can still be used)
+    # TODO: Switch to using this Pydantic model directly for the /upload route form data
     # See https://fastapi.tiangolo.com/tutorial/request-form-models/
     contributor = Contributor(
         name=name,
