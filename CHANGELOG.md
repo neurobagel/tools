@@ -1,3 +1,15 @@
+# v0.1.3 (Mon May 05 2025)
+
+#### 🐛 Bug Fixes
+
+- [FIX] Validate the format of provided GitHub usernames [#56](https://github.com/neurobagel/tools/pull/56) ([@alyssadai](https://github.com/alyssadai))
+
+#### Authors: 1
+
+- Alyssa Dai ([@alyssadai](https://github.com/alyssadai))
+
+---
+
 # v0.1.2 (Sat Feb 01 2025)
 
 #### 🚀 Enhancements
