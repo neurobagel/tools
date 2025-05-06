@@ -59,7 +59,7 @@ async def upload(
             status_code=400,
             content=FailedUpload(
                 error="The uploaded file is not a valid JSON file."
-            ).dict(),
+            ).model_dump(),
         )
 
     # Create a GitHub instance with the appropriate authentication
@@ -82,7 +82,7 @@ async def upload(
             status_code=400,
             content=FailedUpload(
                 error=f"{e.status}: {e.data['message']}. Please ensure you have provided a correct existing dataset ID."
-            ).dict(),
+            ).model_dump(),
         )
 
     # Needed because some repos in OpenNeuroDatasets-JSONLD have "main" default, others have "master"
@@ -112,7 +112,7 @@ async def upload(
         # NOTE: No validation is performed on a JSONResponse (https://fastapi.tiangolo.com/advanced/response-directly/#return-a-response),
         # but that's okay since we mostly want to see the FailedUpload messages
         return JSONResponse(
-            status_code=400, content=FailedUpload(error=str(e)).dict()
+            status_code=400, content=FailedUpload(error=str(e)).model_dump()
         )
 
     if file_exists:
@@ -154,7 +154,7 @@ async def upload(
         except ValueError as e:
             return JSONResponse(
                 status_code=400,
-                content=FailedUpload(error=str(e)).dict(),
+                content=FailedUpload(error=str(e)).model_dump(),
             )
 
         # NOTE: Comparing base64 strings doesn't seem to be sufficient for detecting changes. Might be because of differences in encoding?
@@ -164,7 +164,7 @@ async def upload(
                 status_code=400,
                 content=FailedUpload(
                     error="The content selected for upload is the same as in the target file."
-                ).dict(),
+                ).model_dump(),
             )
     else:
         commit_body = "Add participants.json"
@@ -214,7 +214,7 @@ async def upload(
             status_code=400,
             content=FailedUpload(
                 error=f"Something went wrong when updating or creating participants.json in {repo.html_url}. {e.status}: {e.data['message']}"
-            ).dict(),
+            ).model_dump(),
         )
 
     if upload_warnings:
