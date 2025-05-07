@@ -37,8 +37,15 @@ async def upload(
     affiliation: Annotated[str | None, Form()] = None,
     gh_username: Annotated[str | None, Form()] = None,
 ):
-    # TODO: Switch to using this Pydantic model directly for the /upload route form data
-    # See https://fastapi.tiangolo.com/tutorial/request-form-models/
+    # TODO: Consider switching to using this Pydantic model directly for the /upload route form data
+    # (see https://fastapi.tiangolo.com/tutorial/request-form-models/ for reference)
+    #
+    # This would require a slightly bigger refactor than just updating the function signature,
+    # since currently, in order to use a Form model and File together, the File must be declared inside the Pydantic model
+    # (see https://stackoverflow.com/a/79405574)
+    # In that case, the model would include everything other than the dataset_id (incl. the data dictionary file),
+    # meaning the model would likely need a rename (e.g., Contributor -> Contribution)
+    # and any instances of the Contributor model in the codebase would need to be updated accordingly.
     contributor = Contributor(
         name=name,
         email=email,
