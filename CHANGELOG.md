@@ -1,3 +1,15 @@
+# v0.1.4 (Thu May 08 2025)
+
+#### 🔩 Dependency Updates
+
+- [MNT] Upgrade codebase to Pydantic>2 [#58](https://github.com/neurobagel/tools/pull/58) ([@alyssadai](https://github.com/alyssadai))
+
+#### Authors: 1
+
+- Alyssa Dai ([@alyssadai](https://github.com/alyssadai))
+
+---
+
 # v0.1.3 (Mon May 05 2025)
 
 #### 🐛 Bug Fixes
