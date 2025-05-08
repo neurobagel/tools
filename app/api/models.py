@@ -1,7 +1,8 @@
 import re
+from typing import Literal
 
 from fastapi import HTTPException
-from pydantic import BaseModel, validator
+from pydantic import BaseModel, field_validator
 
 GH_USERNAME_REGEX = re.compile(
     r"""
@@ -23,8 +24,9 @@ class Contributor(BaseModel):
     gh_username: str | None = None
     changes_summary: str
 
-    @validator("gh_username")
-    def valid_github_username(cls, v):
+    @field_validator("gh_username")
+    @classmethod
+    def valid_github_username(cls, v: str) -> str:
         """
         Ensure that the GitHub username looks valid according to GitHub's rules -
         this also ensures that the resulting branch name generated for the PR is valid:
@@ -48,7 +50,9 @@ class Contributor(BaseModel):
 class SuccessfulUpload(BaseModel, extra="forbid"):
     """Data model for a response to a successful upload of a file."""
 
-    message = "Successfully uploaded file to OpenNeuroDatasets-JSONLD."
+    message: Literal[
+        "Successfully uploaded file to OpenNeuroDatasets-JSONLD."
+    ] = "Successfully uploaded file to OpenNeuroDatasets-JSONLD."
     pull_request_url: str
 
 
@@ -61,5 +65,7 @@ class SuccessfulUploadWithWarnings(SuccessfulUpload):
 class FailedUpload(BaseModel):
     """Data model for a response to a failed upload of a file."""
 
-    message = "Failed to upload the file to OpenNeuroDatasets-JSONLD."
+    message: Literal[
+        "Failed to upload the file to OpenNeuroDatasets-JSONLD."
+    ] = "Failed to upload the file to OpenNeuroDatasets-JSONLD."
     error: str

@@ -1,12 +1,11 @@
 import warnings
-
 from typing import List, Tuple
 
 import jsonschema
 
 from . import dictionary_models, mappings
 
-DICTIONARY_SCHEMA = dictionary_models.DataDictionary.schema()
+DICTIONARY_SCHEMA = dictionary_models.DataDictionary.model_json_schema()
 
 
 def get_columns_about(data_dict: dict, concept: str) -> list:
