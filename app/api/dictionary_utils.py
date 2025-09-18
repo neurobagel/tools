@@ -1,7 +1,11 @@
+# This file is adapted from https://github.com/neurobagel/bagel-cli/blob/main/bagel/utilities/pheno_utils.py
+# and contains only the functions needed for validation of a Neurobagel data dictionary itself.
+
 import warnings
 from typing import List, Tuple
 
 import jsonschema
+import pydantic
 
 from . import dictionary_models, mappings
 
@@ -47,9 +51,15 @@ def get_annotated_columns(data_dict: dict) -> List[Tuple[str, dict]]:
 
 def is_column_categorical(column: str, data_dict: dict) -> bool:
     """Determine whether a column in a Neurobagel data dictionary is categorical"""
-    if "Levels" in data_dict[column]["Annotations"]:
+    column_annotation = data_dict[column]["Annotations"]
+
+    try:
+        dictionary_models.CategoricalNeurobagel.model_validate(
+            column_annotation
+        )
         return True
-    return False
+    except pydantic.ValidationError:
+        return False
 
 
 # TODO: Check all columns and then return list of offending columns' names
@@ -86,13 +96,15 @@ def validate_data_dict(data_dict: dict) -> None:
         jsonschema.validate(data_dict, DICTIONARY_SCHEMA)
     except jsonschema.ValidationError as e:
         raise ValueError(
-            "The provided data dictionary is not a valid Neurobagel data dictionary. "
-            "Make sure that each annotated column contains an 'Annotations' key."
+            "The data dictionary is not a valid Neurobagel data dictionary. "
+            f"Entry that failed validation: {e.path[-1] if e.path else 'Entire document'}\n"
+            f"Details: {e.message}\n"
+            "TIP: Ensure each annotated column contains an 'Annotations' key."
         ) from e
 
     if get_annotated_columns(data_dict) == []:
         raise LookupError(
-            "The provided data dictionary must contain at least one column with Neurobagel annotations."
+            "The data dictionary must contain at least one column with Neurobagel annotations."
         )
 
     if (
@@ -104,7 +116,7 @@ def validate_data_dict(data_dict: dict) -> None:
         == 0
     ):
         raise LookupError(
-            "The provided data dictionary must contain at least one column annotated as being about participant ID."
+            "The data dictionary must contain at least one column annotated as being about participant ID."
         )
 
     # TODO: remove this validation when we start handling multiple participant and / or session ID columns
@@ -124,8 +136,8 @@ def validate_data_dict(data_dict: dict) -> None:
         > 1
     ):
         raise ValueError(
-            "The provided data dictionary has more than one column about participant ID or session ID. "
-            "Please make sure that only one column is annotated for participant and session IDs."
+            "The data dictionary has more than one column about participant ID or session ID. "
+            "Please ensure only one column is annotated for participant and session IDs."
         )
 
     if (
@@ -133,8 +145,8 @@ def validate_data_dict(data_dict: dict) -> None:
         > 1
     ):
         warnings.warn(
-            "The provided data dictionary indicates more than one column about sex. "
-            "Neurobagel cannot resolve multiple sex values per subject-session, and so will only consider the first of these columns for sex data."
+            "The data dictionary indicates more than one column about sex. "
+            "Neurobagel cannot resolve multiple sex values per subject-session, and so will use only the first identified column for sex data."
         )
 
     if (
@@ -142,8 +154,23 @@ def validate_data_dict(data_dict: dict) -> None:
         > 1
     ):
         warnings.warn(
-            "The provided data dictionary indicates more than one column about age. "
-            "Neurobagel cannot resolve multiple sex values per subject-session, so will only consider the first of these columns for age data."
+            "The data dictionary indicates more than one column about age. "
+            "Neurobagel cannot resolve multiple age values per subject-session, so will use only the first identified column for age data."
+        )
+
+    # NOTE: We don't yet expect/allow subject group annotations, but we keep this logic in the data dictionary check
+    # for consistency with the CLI, since our data model technically supports subject group.
+    if (
+        len(
+            get_columns_about(
+                data_dict, concept=mappings.NEUROBAGEL["subject_group"]
+            )
+        )
+        > 1
+    ):
+        warnings.warn(
+            "The data dictionary indicates more than one column about subject group. "
+            "Neurobagel cannot resolve multiple subject group values per subject-session, and so will use only the first identified column for subject group data."
         )
 
     if not categorical_cols_have_bids_levels(data_dict):
