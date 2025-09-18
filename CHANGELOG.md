@@ -1,3 +1,15 @@
+# v0.2.0 (Thu Sep 18 2025)
+
+#### 💥 Breaking Changes
+
+- [MNT] Upgrade data dictionary schema and validation for compatibility with `bagel>=0.8.0` [#68](https://github.com/neurobagel/tools/pull/68) ([@alyssadai](https://github.com/alyssadai))
+
+#### Authors: 1
+
+- Alyssa Dai ([@alyssadai](https://github.com/alyssadai))
+
+---
+
 # v0.1.4 (Thu May 08 2025)
 
 #### 🔩 Dependency Updates
