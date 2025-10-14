@@ -43,7 +43,7 @@ def example_new_dict():
                     "TermURL": "nb:ParticipantID",
                     "Label": "Unique subject identifier",
                 },
-                "Identifies": "participant",
+                "VariableType": "Identifier",
             },
         },
         "age": {
@@ -55,6 +55,7 @@ def example_new_dict():
                     "Label": "float value",
                 },
                 "MissingValues": [],
+                "VariableType": "Continuous",
             },
         },
     }

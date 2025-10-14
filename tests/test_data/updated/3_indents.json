@@ -6,7 +6,7 @@
             "TermURL": "nb:ParticipantID",
             "Label": "Unique subject identifier"
          },
-         "Identifies": "participant"
+         "VariableType": "Identifier"
       }
    },
    "age": {
@@ -20,7 +20,8 @@
             "TermURL": "nb:FromFloat",
             "Label": "float value"
          },
-         "MissingValues": []
+         "MissingValues": [],
+         "VariableType": "Continuous"
       }
    }
 }
