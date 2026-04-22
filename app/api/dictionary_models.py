@@ -1,10 +1,9 @@
 """This module is a copy of https://github.com/neurobagel/bagel-cli/blob/main/bagel/dictionary_models.py."""
 
-from typing import Dict, List, Literal, Union
+from typing import Annotated, Dict, List, Literal, Union
 
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field, RootModel
 from pydantic_core import PydanticCustomError
-from typing_extensions import Annotated
 
 
 def validate_unique_list(values: List[str]) -> List[str]:

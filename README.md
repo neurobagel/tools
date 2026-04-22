@@ -20,7 +20,18 @@ Other helpful tools for interfacing with Neurobagel
     docker compose up -d
     ```
 
-## Setting up a development environment
-If running the OpenNeuro Uploader API as a Python app, ensure that the following environment variables are set:
+## Setting up a Python development environment
+
+1. Install the dependencies for the API in editable mode using [uv](https://docs.astral.sh/uv/getting-started/installation/):
+```bash
+uv sync --group dev
+```
+
+2. Ensure that the following environment variables are set:
 - `NB_BOT_ID`: the **app ID** of the Neurobagel Bot app (found on the [settings page for the app](https://docs.github.com/en/apps/maintaining-github-apps/modifying-a-github-app-registration#navigating-to-your-github-app-settings))
 - `NB_BOT_KEY_PATH`: path to a file containing a [private key](https://docs.github.com/en/apps/creating-github-apps/authenticating-with-a-github-app/managing-private-keys-for-github-apps) for the Neurobagel Bot app
+
+3. Launch the API using uv run:
+```bash
+uv run python -m app.main
+```
