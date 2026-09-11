@@ -1,7 +1,7 @@
 [![Main branch checks status](https://img.shields.io/github/check-runs/neurobagel/tools/main)](https://github.com/neurobagel/tools/actions?query=branch:main)
 [![Tests status](https://img.shields.io/github/actions/workflow/status/neurobagel/tools/test.yml?branch=main&label=tests)](https://github.com/neurobagel/tools/actions/workflows/test.yml)
 [![Codecov](https://img.shields.io/codecov/c/github/neurobagel/tools?logo=codecov&link=https%3A%2F%2Fcodecov.io%2Fgh%2Fneurobagel%2Ftools)](https://codecov.io/gh/neurobagel/tools)
-[![Python versions static](https://img.shields.io/badge/python-3.10-blue?logo=python)](https://www.python.org)
+[![Python versions static](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13%20%7C%203.14-blue?style=flat-square&logo=python)](https://www.python.org)
 [![License](https://img.shields.io/github/license/neurobagel/tools?color=purple&link=https%3A%2F%2Fgithub.com%2Fneurobagel%2Ftools%2Fblob%2Fmain%2FLICENSE)](LICENSE)
 [![Docker Image Version (tag)](https://img.shields.io/docker/v/neurobagel/openneuro_upload/latest?logo=docker&link=https%3A%2F%2Fhub.docker.com%2Fr%2Fneurobagel%2Fopenneuro_upload%2Ftags)](https://hub.docker.com/r/neurobagel/openneuro_upload/tags)
 
