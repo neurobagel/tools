@@ -14,7 +14,7 @@ maintainers = [
   { name = "Sebastian Urchs", email = "sebastian.urchs@mcgill.ca" }
 ]
 dynamic = ["version"]
-requires-python = ">=3.10,<3.14"
+requires-python = ">=3.10,<3.15"
 classifiers = [
   "Development Status :: 4 - Beta",
   "Intended Audience :: Science/Research",
